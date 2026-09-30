@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Omaimage
+GenericName=Image Installer
+Comment=ISO- und Raspberry-Pi-Abbilder auf USB-Sticks schreiben
+Exec=omaimage
+Icon=omaimage
+Terminal=false
+Categories=Utility;System;
+Keywords=raspberry;pi;iso;usb;imager;image;
+StartupWMClass=omaimage
