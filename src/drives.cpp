@@ -1,5 +1,6 @@
 #include "drives.h"
 
+#include <QCoreApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -111,12 +112,12 @@ QVector<BlockDevice> listBlockDevices(QString *error) {
                    QStringLiteral("NAME,PATH,SIZE,TYPE,TRAN,RM,RO,MODEL,MOUNTPOINTS,FSTYPE,HOTPLUG")});
     if (!process.waitForFinished(8000)) {
         if (error)
-            *error = QStringLiteral("lsblk hat nicht geantwortet.");
+            *error = QCoreApplication::translate("Drives", "lsblk did not respond.");
         return {};
     }
     if (process.exitCode() != 0) {
         if (error)
-            *error = QStringLiteral("Laufwerke konnten nicht gelesen werden.");
+            *error = QCoreApplication::translate("Drives", "Drives could not be read.");
         return {};
     }
 
@@ -124,7 +125,7 @@ QVector<BlockDevice> listBlockDevices(QString *error) {
     const QJsonDocument document = QJsonDocument::fromJson(process.readAllStandardOutput(), &parseError);
     if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
         if (error)
-            *error = QStringLiteral("Laufwerksliste ist unlesbar.");
+            *error = QCoreApplication::translate("Drives", "The drive list is unreadable.");
         return {};
     }
 
@@ -165,7 +166,7 @@ bool drivesSelfTest(QString *error) {
     const QVector<BlockDevice> devices = listBlockDevices(&listError);
     if (devices.isEmpty()) {
         if (error)
-            *error = listError.isEmpty() ? QStringLiteral("Keine Laufwerke gesehen.") : listError;
+            *error = listError.isEmpty() ? QStringLiteral("No drives were seen.") : listError;
         return false;
     }
     bool sawSystem = false;
@@ -175,20 +176,20 @@ bool drivesSelfTest(QString *error) {
     }
     if (!sawSystem) {
         if (error)
-            *error = QStringLiteral("Die Systemplatte wurde nicht erkannt.");
+            *error = QStringLiteral("The system disk was not detected.");
         return false;
     }
     const QVector<BlockDevice> offered = writableDrives(true, &listError);
     for (const BlockDevice &drive : offered) {
         if (drive.system) {
             if (error)
-                *error = QStringLiteral("Die Systemplatte würde zum Beschreiben angeboten.");
+                *error = QStringLiteral("The system disk would be offered for writing.");
             return false;
         }
     }
     if (formatBytes(1024LL * 1024 * 1024) != QLatin1String("1.0 GB")) {
         if (error)
-            *error = QStringLiteral("formatBytes ist falsch.");
+            *error = QStringLiteral("formatBytes is wrong.");
         return false;
     }
     return true;

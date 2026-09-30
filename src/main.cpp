@@ -9,13 +9,31 @@
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QLibraryInfo>
+#include <QLocale>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlError>
 #include <QQuickStyle>
+#include <QTranslator>
 #include <QUrl>
 
 #include <cstdio>
+
+void installTranslations(QCoreApplication *app) {
+    const QString translationsPath = QLibraryInfo::path(QLibraryInfo::TranslationsPath);
+    auto *qtTranslator = new QTranslator(app);
+    if (qtTranslator->load(QLocale::system(), QStringLiteral("qtbase"), QStringLiteral("_"), translationsPath))
+        app->installTranslator(qtTranslator);
+    else
+        delete qtTranslator;
+
+    auto *appTranslator = new QTranslator(app);
+    if (appTranslator->load(QLocale::system(), QStringLiteral("omaimage"), QStringLiteral("_"), QStringLiteral(":/i18n")))
+        app->installTranslator(appTranslator);
+    else
+        delete appTranslator;
+}
 
 int main(int argc, char *argv[]) {
     QStringList args;
@@ -34,10 +52,12 @@ int main(int argc, char *argv[]) {
     }
     if (args.size() >= 2 && args.first() == QLatin1String("--write-job")) {
         QCoreApplication app(argc, argv);
+        installTranslations(&app);
         return runWriteJob(args.at(1), args.contains(QStringLiteral("--allow-file")));
     }
 
     QApplication app(argc, argv);
+    installTranslations(&app);
     app.setApplicationName(QStringLiteral("omaimage"));
     app.setOrganizationName(QStringLiteral("Omaimage"));
     app.setDesktopFileName(QStringLiteral("omaimage"));

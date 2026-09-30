@@ -202,7 +202,7 @@ ApplicationWindow {
             }
             Item { Layout.fillWidth: true }
             Repeater {
-                model: ["Abbild", "Stick", "Einrichtung", "Schreiben"]
+                model: [qsTr("Image"), qsTr("Drive"), qsTr("Setup"), qsTr("Write")]
                 Action {
                     text: modelData
                     enabled: !backend.busy && (index === 0
@@ -224,7 +224,7 @@ ApplicationWindow {
                 RowLayout {
                     Layout.fillWidth: true
                     Action {
-                        text: "Zurück"
+                        text: qsTr("Back")
                         visible: backend.canGoBack
                         onClicked: {
                             if (searchField.text !== "")
@@ -249,21 +249,21 @@ ApplicationWindow {
                         onActivated: backend.deviceFilterIndex = currentIndex
                     }
                     Action {
-                        text: "Aktualisieren"
+                        text: qsTr("Refresh")
                         onClicked: backend.refreshCatalog()
                     }
                     Action {
-                        text: "Quellen"
+                        text: qsTr("Sources")
                         onClicked: sources.open()
                     }
                     Action {
-                        text: "Lokale Datei"
+                        text: qsTr("Local file")
                         onClicked: backend.chooseLocalImage()
                     }
                 }
                 Line {
                     id: searchField
-                    placeholderText: "Suchen"
+                    placeholderText: qsTr("Search")
                     onTextChanged: backend.setSearch(text)
                 }
                 Text {
@@ -357,7 +357,7 @@ ApplicationWindow {
                     }
                     Text {
                         anchors.centerIn: parent
-                        text: "Keine Abbilder. Prüfe die Verbindung oder füge eine Quelle hinzu."
+                        text: qsTr("No images. Check the connection or add a source.")
                         color: win.muted
                         visible: imageList.count === 0
                         font.family: win.fontFamily
@@ -369,7 +369,7 @@ ApplicationWindow {
                 spacing: 10
                 RowLayout {
                     Text {
-                        text: "USB-Stick"
+                        text: qsTr("USB drive")
                         color: win.ink
                         font.pixelSize: 18
                         font.family: win.fontFamily
@@ -377,17 +377,17 @@ ApplicationWindow {
                     Item { Layout.fillWidth: true }
                     CheckBox {
                         id: showInternal
-                        text: "Interne Laufwerke"
+                        text: qsTr("Internal drives")
                         font.family: win.fontFamily
                         onToggled: backend.refreshDrives(checked)
                     }
                     Action {
-                        text: "Aktualisieren"
+                        text: qsTr("Refresh")
                         onClicked: backend.refreshDrives(showInternal.checked)
                     }
                 }
                 Text {
-                    text: "Die Systemplatte wird nie angezeigt. Alles auf dem Stick wird ersetzt."
+                    text: qsTr("The system disk is never shown. Everything on the drive will be replaced.")
                     color: win.muted
                     font.family: win.fontFamily
                     font.pixelSize: 13
@@ -441,7 +441,7 @@ ApplicationWindow {
                         width: parent.width - 40
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        text: "Kein USB-Stick erkannt. Steck ihn ein und aktualisiere die Liste."
+                        text: qsTr("No USB drive found. Plug one in and refresh the list.")
                         color: win.muted
                         visible: driveList.count === 0
                         font.family: win.fontFamily
@@ -458,8 +458,8 @@ ApplicationWindow {
 
                     Text {
                         text: backend.hasSelection && backend.selection.customisation
-                              ? "Diese Angaben schreibt Omaimage auf die Boot-Partition. Der Pi startet damit ohne Einrichtungsassistent."
-                              : "Dieses Abbild hat keine Raspberry-Pi-Ersteinrichtung. Es wird nur geschrieben."
+                              ? qsTr("Omaimage writes these settings to the boot partition. The Pi starts without the setup wizard.")
+                              : qsTr("This image has no Raspberry Pi first-boot setup. It is only written to the drive.")
                         color: win.muted
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
@@ -468,7 +468,7 @@ ApplicationWindow {
                     }
                     Text {
                         visible: backend.hasSelection
-                        text: "Format: " + (backend.selection.formatLabel || "")
+                        text: qsTr("Format: %1").arg(backend.selection.formatLabel || "")
                         color: win.ink
                         font.family: win.fontFamily
                     }
@@ -477,11 +477,11 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         font.family: win.fontFamily
                         model: [
-                            { label: "Keine Ersteinrichtung", value: "none" },
-                            { label: "Raspberry Pi OS (cloud-init)", value: "cloudinit-rpi" },
-                            { label: "cloud-init", value: "cloudinit" },
-                            { label: "Raspberry Pi OS Legacy (firstrun)", value: "systemd" },
-                            { label: "rpi-preseed", value: "rpi-preseed" }
+                            { label: qsTr("No first-boot setup"), value: "none" },
+                            { label: qsTr("Raspberry Pi OS (cloud-init)"), value: "cloudinit-rpi" },
+                            { label: qsTr("cloud-init"), value: "cloudinit" },
+                            { label: qsTr("Raspberry Pi OS Legacy (firstrun)"), value: "systemd" },
+                            { label: qsTr("rpi-preseed"), value: "rpi-preseed" }
                         ]
                         textRole: "label"
                         valueRole: "value"
@@ -501,36 +501,36 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         spacing: 12
 
-                        Text { text: "Benutzer"; color: win.ink; font.bold: true; font.family: win.fontFamily }
+                        Text { text: qsTr("User"); color: win.ink; font.bold: true; font.family: win.fontFamily }
                         Text {
-                            text: "Name und Passwort überspringen den Assistenten beim ersten Start."
+                            text: qsTr("A name and password skip the wizard on first boot.")
                             color: win.muted
                             font.pixelSize: 12
                             font.family: win.fontFamily
                             wrapMode: Text.WordWrap
                             Layout.fillWidth: true
                         }
-                        Line { placeholderText: "Benutzername"; text: setup.username; onTextEdited: setup.username = text }
-                        Line { placeholderText: "Passwort"; echoMode: TextInput.Password; text: setup.password; onTextEdited: setup.password = text }
-                        Line { placeholderText: "Passwort wiederholen"; echoMode: TextInput.Password; text: setup.password2; onTextEdited: setup.password2 = text }
+                        Line { placeholderText: qsTr("Username"); text: setup.username; onTextEdited: setup.username = text }
+                        Line { placeholderText: qsTr("Password"); echoMode: TextInput.Password; text: setup.password; onTextEdited: setup.password = text }
+                        Line { placeholderText: qsTr("Repeat password"); echoMode: TextInput.Password; text: setup.password2; onTextEdited: setup.password2 = text }
                         CheckBox {
-                            text: "sudo ohne Passwort"
+                            text: qsTr("sudo without a password")
                             font.family: win.fontFamily
                             checked: setup.passwordlessSudo
                             onToggled: setup.passwordlessSudo = checked
                         }
 
-                        Text { text: "WLAN"; color: win.ink; font.bold: true; font.family: win.fontFamily }
+                        Text { text: qsTr("Wi-Fi"); color: win.ink; font.bold: true; font.family: win.fontFamily }
                         CheckBox {
-                            text: "WLAN einrichten"
+                            text: qsTr("Set up Wi-Fi")
                             font.family: win.fontFamily
                             checked: setup.wifiEnabled
                             onToggled: setup.wifiEnabled = checked
                         }
-                        Line { enabled: setup.wifiEnabled; placeholderText: "Netzwerkname"; text: setup.wifiSsid; onTextEdited: setup.wifiSsid = text }
+                        Line { enabled: setup.wifiEnabled; placeholderText: qsTr("Network name"); text: setup.wifiSsid; onTextEdited: setup.wifiSsid = text }
                         Line {
                             enabled: setup.wifiEnabled && !setup.wifiOpen
-                            placeholderText: "WLAN-Passwort"
+                            placeholderText: qsTr("Wi-Fi password")
                             echoMode: TextInput.Password
                             text: setup.wifiPassword
                             onTextEdited: setup.wifiPassword = text
@@ -545,22 +545,22 @@ ApplicationWindow {
                         }
                         CheckBox {
                             enabled: setup.wifiEnabled
-                            text: "Verstecktes Netzwerk"
+                            text: qsTr("Hidden network")
                             font.family: win.fontFamily
                             checked: setup.wifiHidden
                             onToggled: setup.wifiHidden = checked
                         }
                         CheckBox {
                             enabled: setup.wifiEnabled
-                            text: "Offenes Netzwerk"
+                            text: qsTr("Open network")
                             font.family: win.fontFamily
                             checked: setup.wifiOpen
                             onToggled: setup.wifiOpen = checked
                         }
 
-                        Text { text: "Region"; color: win.ink; font.bold: true; font.family: win.fontFamily }
-                        Line { placeholderText: "Locale, zum Beispiel de_DE.UTF-8"; text: setup.locale; onTextEdited: setup.locale = text }
-                        Line { placeholderText: "Zeitzone, zum Beispiel Europe/Berlin"; text: setup.timezone; onTextEdited: setup.timezone = text }
+                        Text { text: qsTr("Region"); color: win.ink; font.bold: true; font.family: win.fontFamily }
+                        Line { placeholderText: qsTr("Locale, for example en_US.UTF-8"); text: setup.locale; onTextEdited: setup.locale = text }
+                        Line { placeholderText: qsTr("Time zone, for example Europe/Berlin"); text: setup.timezone; onTextEdited: setup.timezone = text }
                         ThemedBox {
                             id: keyboardBox
                             Layout.fillWidth: true
@@ -569,29 +569,29 @@ ApplicationWindow {
                             onActivated: setup.keyboard = currentText
                         }
 
-                        Text { text: "SSH"; color: win.ink; font.bold: true; font.family: win.fontFamily }
+                        Text { text: qsTr("SSH"); color: win.ink; font.bold: true; font.family: win.fontFamily }
                         CheckBox {
-                            text: "SSH aktivieren"
+                            text: qsTr("Enable SSH")
                             font.family: win.fontFamily
                             checked: setup.sshEnabled
                             onToggled: setup.sshEnabled = checked
                         }
                         CheckBox {
                             enabled: setup.sshEnabled
-                            text: "Anmeldung mit Passwort"
+                            text: qsTr("Password login")
                             font.family: win.fontFamily
                             checked: setup.sshPasswordAuth
                             onToggled: setup.sshPasswordAuth = checked
                         }
                         Line {
                             enabled: setup.sshEnabled
-                            placeholderText: "Öffentliche Schlüssel, eine Zeile pro Schlüssel"
+                            placeholderText: qsTr("Public keys, one per line")
                             text: setup.sshKeys
                             onTextEdited: setup.sshKeys = text
                         }
                         Action {
                             enabled: setup.sshEnabled
-                            text: "Schlüsseldatei laden"
+                            text: qsTr("Load key file")
                             onClicked: {
                                 var keys = backend.pickSshKeys()
                                 if (keys !== "")
@@ -599,14 +599,14 @@ ApplicationWindow {
                             }
                         }
 
-                        Text { text: "Hostname"; color: win.ink; font.bold: true; font.family: win.fontFamily }
-                        Line { placeholderText: "Hostname, leer lässt raspberrypi"; text: setup.hostname; onTextEdited: setup.hostname = text }
+                        Text { text: qsTr("Hostname"); color: win.ink; font.bold: true; font.family: win.fontFamily }
+                        Line { placeholderText: qsTr("Hostname, empty keeps raspberrypi"); text: setup.hostname; onTextEdited: setup.hostname = text }
 
                         ColumnLayout {
                             visible: backend.selection.interfaces
                             Layout.fillWidth: true
                             spacing: 8
-                            Text { text: "Schnittstellen"; color: win.ink; font.bold: true; font.family: win.fontFamily }
+                            Text { text: qsTr("Interfaces"); color: win.ink; font.bold: true; font.family: win.fontFamily }
                             CheckBox { text: "I2C"; font.family: win.fontFamily; checked: setup.enableI2C; onToggled: setup.enableI2C = checked }
                             CheckBox { text: "SPI"; font.family: win.fontFamily; checked: setup.enableSPI; onToggled: setup.enableSPI = checked }
                             CheckBox { text: "1-Wire"; font.family: win.fontFamily; checked: setup.enable1Wire; onToggled: setup.enable1Wire = checked }
@@ -616,11 +616,11 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 font.family: win.fontFamily
                                 model: [
-                                    { label: "Seriell aus", value: "Disabled" },
-                                    { label: "Seriell Standard", value: "Default" },
-                                    { label: "Serielle Konsole", value: "Console" },
-                                    { label: "Serielle Hardware", value: "Hardware" },
-                                    { label: "Konsole und Hardware", value: "Console & Hardware" }
+                                    { label: qsTr("Serial off"), value: "Disabled" },
+                                    { label: qsTr("Serial default"), value: "Default" },
+                                    { label: qsTr("Serial console"), value: "Console" },
+                                    { label: qsTr("Serial hardware"), value: "Hardware" },
+                                    { label: qsTr("Console and hardware"), value: "Console & Hardware" }
                                 ]
                                 textRole: "label"
                                 valueRole: "value"
@@ -630,14 +630,14 @@ ApplicationWindow {
 
                         Text { text: "Raspberry Pi Connect"; color: win.ink; font.bold: true; font.family: win.fontFamily }
                         CheckBox {
-                            text: "Connect aktivieren"
+                            text: qsTr("Enable Connect")
                             font.family: win.fontFamily
                             checked: setup.connectEnabled
                             onToggled: setup.connectEnabled = checked
                         }
                         Line {
                             enabled: setup.connectEnabled
-                            placeholderText: "Connect-Token, optional"
+                            placeholderText: qsTr("Connect token, optional")
                             echoMode: TextInput.Password
                             text: setup.connectToken
                             onTextEdited: setup.connectToken = text
@@ -649,7 +649,7 @@ ApplicationWindow {
             ColumnLayout {
                 spacing: 10
                 Text {
-                    text: "Schreiben"
+                    text: qsTr("Write")
                     color: win.ink
                     font.pixelSize: 18
                     font.family: win.fontFamily
@@ -659,15 +659,15 @@ ApplicationWindow {
                     wrapMode: Text.WordWrap
                     color: win.ink
                     font.family: win.fontFamily
-                    text: (backend.selection.name || "Kein Abbild") + "\n"
+                    text: (backend.selection.name || qsTr("No image")) + "\n"
                           + (backend.driveIndex >= 0 && backend.drives[backend.driveIndex]
                              ? backend.drives[backend.driveIndex].title + "  ·  " + backend.drives[backend.driveIndex].detail
-                             : "Kein Stick")
+                             : qsTr("No drive"))
                 }
                 Text {
                     id: sizeWarning
                     visible: tooSmall
-                    text: "Das Abbild passt nicht auf den Stick."
+                    text: qsTr("The image does not fit on the drive.")
                     color: win.danger
                     font.family: win.fontFamily
                     property bool tooSmall: {
@@ -679,12 +679,12 @@ ApplicationWindow {
                 }
                 CheckBox {
                     id: confirm
-                    text: "Ich weiß, dass der Stick vollständig überschrieben wird"
+                    text: qsTr("I understand that the drive will be completely overwritten")
                     font.family: win.fontFamily
                     enabled: !backend.busy
                 }
                 Action {
-                    text: backend.busy ? "Abbrechen" : "Stick überschreiben"
+                    text: backend.busy ? qsTr("Cancel") : qsTr("Overwrite drive")
                     primary: !backend.busy
                     enabled: backend.busy || (confirm.checked && backend.hasSelection && backend.driveIndex >= 0 && !sizeWarning.tooSmall)
                     onClicked: {
@@ -768,10 +768,10 @@ ApplicationWindow {
                 elide: Text.ElideRight
                 color: win.muted
                 font.family: win.fontFamily
-                text: backend.hasSelection ? ("Gewählt: " + backend.selection.name) : "Noch kein Abbild gewählt"
+                text: backend.hasSelection ? qsTr("Selected: %1").arg(backend.selection.name) : qsTr("No image selected yet")
             }
             Action {
-                text: "Weiter"
+                text: qsTr("Next")
                 primary: true
                 enabled: !backend.busy && ((win.step === 0 && backend.hasSelection)
                          || (win.step === 1 && backend.driveIndex >= 0)
@@ -795,9 +795,9 @@ ApplicationWindow {
         ColumnLayout {
             anchors.fill: parent
             spacing: 8
-            Text { text: "Quellen"; color: win.ink; font.pixelSize: 18; font.family: win.fontFamily }
+            Text { text: qsTr("Sources"); color: win.ink; font.pixelSize: 18; font.family: win.fontFamily }
             Text {
-                text: "Kataloge im Format des Raspberry-Pi-Imagers, oder einzelne Download-URLs."
+                text: qsTr("Catalogs in the Raspberry Pi Imager format, or single download URLs.")
                 color: win.muted
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -831,18 +831,18 @@ ApplicationWindow {
                             font.family: win.fontFamily
                         }
                     }
-                    Action { text: "Entfernen"; onClicked: backend.removeRepository(repoRow.modelData.url) }
+                    Action { text: qsTr("Remove"); onClicked: backend.removeRepository(repoRow.modelData.url) }
                 }
             }
             Line { id: repoUrl; placeholderText: "https://…/os_list.json" }
             Action {
-                text: "Katalog hinzufügen"
+                text: qsTr("Add catalog")
                 onClicked: {
                     backend.addRepository(repoUrl.text)
                     repoUrl.text = ""
                 }
             }
-            Text { text: "Einzelne Abbilder"; color: win.ink; font.family: win.fontFamily }
+            Text { text: qsTr("Single images"); color: win.ink; font.family: win.fontFamily }
             ListView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -870,20 +870,20 @@ ApplicationWindow {
                             font.family: win.fontFamily
                         }
                     }
-                    Action { text: "Entfernen"; onClicked: backend.removeDirectImage(directRow.modelData.url) }
+                    Action { text: qsTr("Remove"); onClicked: backend.removeDirectImage(directRow.modelData.url) }
                 }
             }
-            Line { id: directName; placeholderText: "Name" }
+            Line { id: directName; placeholderText: qsTr("Name") }
             Line { id: directUrl; placeholderText: "https://…/bild.img.xz" }
             Action {
-                text: "Abbild-URL hinzufügen"
+                text: qsTr("Add image URL")
                 onClicked: {
                     backend.addDirectImage(directName.text, directUrl.text, "none")
                     directName.text = ""
                     directUrl.text = ""
                 }
             }
-            Action { text: "Schließen"; onClicked: sources.close() }
+            Action { text: qsTr("Close"); onClicked: sources.close() }
         }
     }
 

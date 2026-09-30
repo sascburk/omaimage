@@ -12,4 +12,4 @@ install -Dm644 "$root/packaging/omaimage.svg" "$HOME/.local/share/icons/hicolor/
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
 fi
-echo "Omaimage liegt unter $HOME/.local/bin/omaimage"
+echo "Omaimage is installed at $HOME/.local/bin/omaimage"

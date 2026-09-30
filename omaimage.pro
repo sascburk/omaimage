@@ -23,3 +23,6 @@ SOURCES += \
     src/writer.cpp
 
 RESOURCES += src/resources.qrc
+
+TRANSLATIONS += translations/omaimage_de.ts
+CONFIG += lrelease embed_translations

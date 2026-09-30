@@ -6,6 +6,7 @@
 
 #include <crypt.h>
 
+#include <QCoreApplication>
 #include <QDate>
 #include <QDateTime>
 #include <QPasswordDigestor>
@@ -125,45 +126,45 @@ QString validate(const CustomRequest &request, bool *any) {
     if (!user.isEmpty()) {
         static const QRegularExpression namePattern(QStringLiteral("^[a-z_][a-z0-9_-]{0,31}$"));
         if (!namePattern.match(user).hasMatch())
-            return QStringLiteral("Der Benutzername darf nur Kleinbuchstaben, Ziffern, _ und - enthalten.");
+            return QCoreApplication::translate("Customise", "The username may only contain lowercase letters, digits, _ and -.");
         if (request.password.isEmpty() && sshKeyLines(request.sshKeys).isEmpty())
-            return QStringLiteral("Zum Benutzer fehlt das Passwort.");
+            return QCoreApplication::translate("Customise", "The user is missing a password.");
         *any = true;
     } else if (!request.password.isEmpty()) {
-        return QStringLiteral("Zum Passwort fehlt der Benutzername.");
+        return QCoreApplication::translate("Customise", "The password is missing a username.");
     }
 
     if (!request.hostname.trimmed().isEmpty()) {
         static const QRegularExpression hostPattern(
             QStringLiteral("^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$"));
         if (!hostPattern.match(request.hostname.trimmed()).hasMatch())
-            return QStringLiteral("Der Hostname ist ungültig.");
+            return QCoreApplication::translate("Customise", "The hostname is invalid.");
         *any = true;
     }
 
     if (!request.timezone.trimmed().isEmpty()) {
         static const QRegularExpression zonePattern(QStringLiteral("^[A-Za-z0-9_+\\-/]{1,64}$"));
         if (!zonePattern.match(request.timezone.trimmed()).hasMatch())
-            return QStringLiteral("Die Zeitzone ist ungültig.");
+            return QCoreApplication::translate("Customise", "The time zone is invalid.");
     }
     if (!request.keyboard.trimmed().isEmpty()) {
         static const QRegularExpression keyPattern(QStringLiteral("^[A-Za-z0-9_-]{1,32}$"));
         if (!keyPattern.match(request.keyboard.trimmed()).hasMatch())
-            return QStringLiteral("Die Tastaturbelegung ist ungültig.");
+            return QCoreApplication::translate("Customise", "The keyboard layout is invalid.");
     }
     if (request.wifiSsid.contains(QLatin1Char('\n')) || request.wifiSsid.contains(QLatin1Char('\r')))
-        return QStringLiteral("Der WLAN-Name enthält einen Zeilenumbruch.");
+        return QCoreApplication::translate("Customise", "The Wi-Fi name contains a line break.");
 
     if (!request.wifiSsid.trimmed().isEmpty()) {
         const QString password = stripNewlines(request.wifiPassword);
         if (!request.wifiOpen && (password.size() < 8 || password.size() > 63)
             && password.size() != 64)
-            return QStringLiteral("Das WLAN-Passwort muss 8 bis 63 Zeichen haben.");
+            return QCoreApplication::translate("Customise", "The Wi-Fi password must be 8 to 63 characters.");
         if (countryCode(request.wifiCountry).isEmpty())
-            return QStringLiteral("Für WLAN fehlt das Land, zum Beispiel DE.");
+            return QCoreApplication::translate("Customise", "Wi-Fi is missing a country, for example US.");
         *any = true;
     } else if (!request.wifiPassword.isEmpty()) {
-        return QStringLiteral("Zum WLAN-Passwort fehlt der Netzwerkname.");
+        return QCoreApplication::translate("Customise", "The Wi-Fi password is missing a network name.");
     }
 
     if (request.sshEnabled)
@@ -622,14 +623,14 @@ bool initFormatSupportsInterfaces(const QString &initFormat) {
 
 QString describeInitFormat(const QString &initFormat) {
     if (initFormat == QLatin1String("cloudinit-rpi"))
-        return QStringLiteral("Raspberry Pi OS (cloud-init)");
+        return QCoreApplication::translate("Customise", "Raspberry Pi OS (cloud-init)");
     if (initFormat == QLatin1String("cloudinit"))
-        return QStringLiteral("cloud-init");
+        return QCoreApplication::translate("Customise", "cloud-init");
     if (initFormat == QLatin1String("systemd"))
-        return QStringLiteral("Raspberry Pi OS Legacy (firstrun)");
+        return QCoreApplication::translate("Customise", "Raspberry Pi OS Legacy (firstrun)");
     if (initFormat == QLatin1String("rpi-preseed"))
-        return QStringLiteral("rpi-preseed");
-    return QStringLiteral("Keine Ersteinrichtung");
+        return QCoreApplication::translate("Customise", "rpi-preseed");
+    return QCoreApplication::translate("Customise", "No first-boot setup");
 }
 
 CustomResult buildCustomisation(const CustomRequest &request) {
@@ -646,7 +647,7 @@ CustomResult buildCustomisation(const CustomRequest &request) {
         ? QString()
         : cryptHash(request.password, request.releaseDate);
     if (!request.password.isEmpty() && passwordHash.isEmpty()) {
-        result.error = QStringLiteral("Das Passwort konnte nicht gehasht werden.");
+        result.error = QCoreApplication::translate("Customise", "The password could not be hashed.");
         return result;
     }
     const QString psk = request.wifiSsid.trimmed().isEmpty() || request.wifiOpen
@@ -721,25 +722,25 @@ bool customiseSelfTest(QString *error) {
     const QByteArray network = cloud.files.value(QStringLiteral("network-config"));
     const QByteArray meta = cloud.files.value(QStringLiteral("meta-data"));
     if (!userData.startsWith("#cloud-config\n"))
-        return fail(QStringLiteral("user-data ohne cloud-config-Kopf."));
+        return fail(QStringLiteral("user-data is missing the cloud-config header."));
     if (!userData.contains("hostname: \"pi-box\"") || !userData.contains("name: \"ada\"")
         || !userData.contains("timezone: \"Europe/Berlin\"") || !userData.contains("layout: \"de\"")
         || !userData.contains("locale: \"de_DE.UTF-8\"") || !userData.contains("i2c: true")
         || !userData.contains("ssh_pwauth: false") || !userData.contains("sudo: null"))
-        return fail(QStringLiteral("user-data unvollständig."));
+        return fail(QStringLiteral("user-data is incomplete."));
     if (userData.contains("S3cret-Passw0rd") || network.contains("wlan-secret-99"))
-        return fail(QStringLiteral("Klartext-Geheimnis im cloud-init."));
+        return fail(QStringLiteral("Plaintext secret in cloud-init."));
     if (!userData.contains("passwd: \"$y$") && !userData.contains("passwd: \"$5$"))
-        return fail(QStringLiteral("Passwort-Hash fehlt."));
+        return fail(QStringLiteral("Password hash is missing."));
     if (!network.contains("regulatory-domain: \"DE\"") || !network.contains("hidden: true")
         || !network.contains("Heimnetz") || !network.contains("eth0:"))
-        return fail(QStringLiteral("network-config unvollständig."));
+        return fail(QStringLiteral("network-config is incomplete."));
     if (!cloud.cmdlineAppend.contains("ds=nocloud;i=omaimage-")
         || !cloud.cmdlineAppend.contains("cfg80211.ieee80211_regdom=DE"))
-        return fail(QStringLiteral("cmdline für cloud-init unvollständig."));
+        return fail(QStringLiteral("cloud-init cmdline is incomplete."));
     const int marker = meta.indexOf("instance-id: ");
     if (marker < 0 || !cloud.cmdlineAppend.contains(meta.mid(marker + 13).trimmed()))
-        return fail(QStringLiteral("instance-id weicht ab."));
+        return fail(QStringLiteral("instance-id does not match."));
 
     request.initFormat = QStringLiteral("systemd");
     request.releaseDate = QStringLiteral("2022-01-01");
@@ -750,13 +751,13 @@ bool customiseSelfTest(QString *error) {
     if (!script.contains("set_hostname") || !script.contains("userconf") || !script.contains("set_wlan")
         || !script.contains("set_keymap") || !script.contains("set_timezone")
         || !script.contains("rm -f /boot/firstrun.sh"))
-        return fail(QStringLiteral("firstrun.sh unvollständig."));
+        return fail(QStringLiteral("firstrun.sh is incomplete."));
     if (!script.contains("enable_ssh -k 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey $(reboot)'"))
-        return fail(QStringLiteral("SSH-Schlüssel ist im Skript nicht sicher quotiert."));
+        return fail(QStringLiteral("The SSH key is not safely quoted in the script."));
     if (script.contains("S3cret-Passw0rd") || !script.contains("IMAGER_PASS='$5$"))
-        return fail(QStringLiteral("Legacy-Passwort-Hash stimmt nicht."));
+        return fail(QStringLiteral("Legacy password hash does not match."));
     if (!legacy.cmdlineAppend.contains("systemd.run=/boot/firstrun.sh"))
-        return fail(QStringLiteral("systemd.run fehlt."));
+        return fail(QStringLiteral("systemd.run is missing."));
 
     request.initFormat = QStringLiteral("rpi-preseed");
     request.releaseDate = QStringLiteral("2026-09-15");
@@ -768,21 +769,21 @@ bool customiseSelfTest(QString *error) {
         || !toml.contains("password_encrypted = true") || !toml.contains("[wlan]")
         || !toml.contains("[locale]") || !toml.contains("[ssh]") || !toml.contains("[interfaces]")
         || !toml.contains("[connect]") || !toml.contains("usb_gadget = true"))
-        return fail(QStringLiteral("rpi-preseed.toml unvollständig."));
+        return fail(QStringLiteral("rpi-preseed.toml is incomplete."));
     if (toml.contains("S3cret-Passw0rd") || toml.contains("wlan-secret-99"))
-        return fail(QStringLiteral("Klartext im Preseed."));
+        return fail(QStringLiteral("Plaintext in the preseed."));
 
     CustomRequest invalid;
     invalid.initFormat = QStringLiteral("cloudinit-rpi");
     invalid.username = QStringLiteral("Ada");
     invalid.password = QStringLiteral("secret");
     if (buildCustomisation(invalid).error.isEmpty())
-        return fail(QStringLiteral("Ungültiger Benutzername wurde akzeptiert."));
+        return fail(QStringLiteral("An invalid username was accepted."));
 
     CustomRequest empty;
     empty.initFormat = QStringLiteral("none");
     empty.username = QStringLiteral("ada");
     if (!buildCustomisation(empty).files.isEmpty())
-        return fail(QStringLiteral("Format none hat Dateien erzeugt."));
+        return fail(QStringLiteral("Format none produced files."));
     return true;
 }

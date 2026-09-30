@@ -6,8 +6,10 @@
   <vendor>Omaimage</vendor>
   <vendor_url>https://omarchy.org</vendor_url>
   <action id="io.omacom.omaimage.write">
-    <description>Abbild auf einen USB-Stick schreiben</description>
-    <message>Omaimage braucht Administratorrechte, um den USB-Stick zu beschreiben.</message>
+    <description>Write an image to a USB drive</description>
+    <description xml:lang="de">Abbild auf einen USB-Stick schreiben</description>
+    <message>Omaimage needs administrator rights to write the USB drive.</message>
+    <message xml:lang="de">Omaimage braucht Administratorrechte, um den USB-Stick zu beschreiben.</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

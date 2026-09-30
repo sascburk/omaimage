@@ -1,14 +1,16 @@
 # Omaimage
 
-Schlanke Qt-Quick-App im Stil von Omawrite und Omacalc. Sie schreibt ISO- und Image-Dateien auf einen USB-Stick und richtet Raspberry-Pi-Abbilder so ein, dass der Pi beim ersten Start direkt hochfährt.
+A small Qt Quick app in the style of Omawrite and Omacalc. It writes ISO and image files to a USB drive and sets up Raspberry Pi images so the Pi boots straight away the first time it is plugged in.
 
-Die Liste kommt von `https://downloads.raspberrypi.com/os_list_imagingutility_v4.json`, also dieselben aktuellen Abbilder wie im Raspberry Pi Imager. Weitere Katalog-URLs im selben JSON-Format und einzelne Download-Links lassen sich in der App hinzufügen.
+The list comes from `https://downloads.raspberrypi.com/os_list_imagingutility_v4.json`, the same current images as Raspberry Pi Imager. Extra catalog URLs in that JSON format, and single download links, can be added in the app.
 
-Für Raspberry-Pi-OS stehen Benutzer, Passwort, WLAN, Land, Tastatur, Zeitzone, Locale, SSH, Hostname, Schnittstellen und Raspberry Pi Connect zur Verfügung. Aktuelle Abbilder bekommen cloud-init (`user-data`, `network-config`), ältere ein `firstrun.sh`.
+For Raspberry Pi OS you can set the user, password, Wi-Fi, country, keyboard, time zone, locale, SSH, hostname, interfaces, and Raspberry Pi Connect. Current images get cloud-init (`user-data`, `network-config`). Older images get a `firstrun.sh`.
 
-## Bauen
+The interface is English. If the system language is German, `translations/omaimage_de.ts` is used instead. Other languages fall back to English.
 
-Abhängigkeiten auf Omarchy: `qt6-base`, `qt6-declarative`, `qt6-quickcontrols2`, `qt6-svg`, `xz`, `gzip`, `zstd`, `libarchive` (`bsdtar`), `util-linux`, `polkit`.
+## Build
+
+Dependencies on Omarchy: `qt6-base`, `qt6-declarative`, `qt6-quickcontrols2`, `qt6-svg`, `xz`, `gzip`, `zstd`, `libarchive` (`bsdtar`), `util-linux`, `polkit`.
 
 ```bash
 qmake6 omaimage.pro
@@ -17,10 +19,22 @@ make -j"$(nproc)"
 ./bin/install.sh
 ```
 
-`install.sh` legt die App unter `~/.local/bin/omaimage` ab und trägt einen Starter ein.
+`install.sh` installs the app to `~/.local/bin/omaimage` and adds a launcher.
 
-Schreiben auf den Stick startet `pkexec` und fragt nach dem Administratorpasswort. Die Systemplatte wird nicht angeboten.
+Writing to the drive starts `pkexec` and asks for the administrator password. The system disk is never offered.
 
-## Quellen
+## Sources
 
-Eigene Kataloge müssen ein `os_list` enthalten, wie es der Raspberry Pi Imager erwartet. Eine einzelne URL zeigt auf eine `.img`, `.iso`, `.xz`, `.gz`, `.zip` oder `.zst` Datei. Bei lokalen Dateien und eigenen URLs lässt sich das Einrichtungsformat wählen; für aktuelle Raspberry-Pi-OS-Abbilder ist das „Raspberry Pi OS (cloud-init)“.
+Custom catalogs must contain an `os_list`, as expected by Raspberry Pi Imager. A single URL points at an `.img`, `.iso`, `.xz`, `.gz`, `.zip`, or `.zst` file. For local files and custom URLs you can choose the setup format. For current Raspberry Pi OS images that is “Raspberry Pi OS (cloud-init)”.
+
+## Translations
+
+Source strings are English (`qsTr` / `tr`). German lives in `translations/omaimage_de.ts`. After editing strings:
+
+```bash
+lupdate omaimage.pro
+# edit translations/omaimage_de.ts
+qmake6 omaimage.pro && make -j"$(nproc)"
+```
+
+The app loads the translation that matches the system locale.

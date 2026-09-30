@@ -2,7 +2,9 @@
 Type=Application
 Name=Omaimage
 GenericName=Image Installer
-Comment=ISO- und Raspberry-Pi-Abbilder auf USB-Sticks schreiben
+Comment=Write ISO and Raspberry Pi images to USB drives
+Comment[de]=ISO- und Raspberry-Pi-Abbilder auf USB-Sticks schreiben
+GenericName[de]=Image-Installer
 Exec=omaimage
 Icon=omaimage
 Terminal=false

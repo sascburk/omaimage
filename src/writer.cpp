@@ -2,6 +2,7 @@
 
 #include "drives.h"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
@@ -59,17 +60,17 @@ enum class Compression { None, Xz, Gzip, Zstd, Zip, Reject };
 Compression sniff(const QString &path, QString *error) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        *error = QStringLiteral("Abbild lässt sich nicht öffnen.");
+        *error = QCoreApplication::translate("Writer", "The image cannot be opened.");
         return Compression::Reject;
     }
     const QByteArray magic = file.read(8);
     if (magic.isEmpty()) {
-        *error = QStringLiteral("Die Abbilddatei ist leer.");
+        *error = QCoreApplication::translate("Writer", "The image file is empty.");
         return Compression::Reject;
     }
     if (magic.startsWith("<!") || magic.startsWith("<ht") || magic.startsWith("<HT")
         || magic.startsWith("{") || magic.startsWith("<htm")) {
-        *error = QStringLiteral("Die Datei ist kein Datenträgerabbild.");
+        *error = QCoreApplication::translate("Writer", "The file is not a disk image.");
         return Compression::Reject;
     }
     if (magic.startsWith(QByteArray::fromHex("FD377A585A00")))
@@ -84,7 +85,7 @@ Compression sniff(const QString &path, QString *error) {
     const QString name = QFileInfo(path).fileName().toLower();
     if (name.contains(QLatin1String(".xz")) || name.endsWith(QLatin1String(".gz"))
         || name.endsWith(QLatin1String(".zip")) || name.endsWith(QLatin1String(".zst"))) {
-        *error = QStringLiteral("Die Dateiendung passt nicht zum Dateiinhalt.");
+        *error = QCoreApplication::translate("Writer", "The file extension does not match the contents.");
         return Compression::Reject;
     }
     return Compression::None;
@@ -104,8 +105,8 @@ bool streamDecompressed(const QString &source, Compression compression, int fd,
         if (chunk.isEmpty())
             return true;
         if (!writeAll(fd, chunk.constData(), chunk.size())) {
-            *error = g_stop ? QStringLiteral("Abgebrochen.")
-                            : QStringLiteral("Schreiben auf den Stick ist fehlgeschlagen.");
+            *error = g_stop ? QCoreApplication::translate("Writer", "Cancelled.")
+                            : QCoreApplication::translate("Writer", "Writing to the drive failed.");
             return false;
         }
         hash->addData(chunk);
@@ -117,7 +118,7 @@ bool streamDecompressed(const QString &source, Compression compression, int fd,
     if (compression == Compression::None) {
         QFile file(source);
         if (!file.open(QIODevice::ReadOnly)) {
-            *error = QStringLiteral("Abbild lässt sich nicht lesen.");
+            *error = QCoreApplication::translate("Writer", "The image cannot be read.");
             return false;
         }
         while (!g_stop) {
@@ -127,7 +128,7 @@ bool streamDecompressed(const QString &source, Compression compression, int fd,
             if (!consume(chunk))
                 return false;
         }
-        *error = QStringLiteral("Abgebrochen.");
+        *error = QCoreApplication::translate("Writer", "Cancelled.");
         return false;
     }
 
@@ -151,7 +152,7 @@ bool streamDecompressed(const QString &source, Compression compression, int fd,
     process.setProcessChannelMode(QProcess::SeparateChannels);
     process.start(program, arguments);
     if (!process.waitForStarted(5000)) {
-        *error = program + QStringLiteral(" konnte nicht gestartet werden.");
+        *error = QCoreApplication::translate("Writer", "%1 could not be started.").arg(program);
         return false;
     }
 
@@ -159,7 +160,7 @@ bool streamDecompressed(const QString &source, Compression compression, int fd,
         if (g_stop) {
             process.kill();
             process.waitForFinished(2000);
-            *error = QStringLiteral("Abgebrochen.");
+            *error = QCoreApplication::translate("Writer", "Cancelled.");
             return false;
         }
         if (process.bytesAvailable() == 0)
@@ -178,7 +179,7 @@ bool streamDecompressed(const QString &source, Compression compression, int fd,
     if (!rest.isEmpty() && !consume(rest))
         return false;
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        *error = QStringLiteral("Entpacken ist fehlgeschlagen.");
+        *error = QCoreApplication::translate("Writer", "Decompression failed.");
         return false;
     }
     return true;
@@ -235,7 +236,7 @@ bool applyCustomisation(const QString &diskPath, const QJsonObject &files, const
     if (files.isEmpty() && cmdline.isEmpty())
         return true;
 
-    emitLine("STATUS", QStringLiteral("Partitionen werden gelesen …"));
+    emitLine("STATUS", QCoreApplication::translate("Writer", "Reading partitions…"));
     QProcess::execute(QStringLiteral("partprobe"), {diskPath});
     QProcess::execute(QStringLiteral("udevadm"), {QStringLiteral("settle"), QStringLiteral("--timeout=8")});
 
@@ -244,12 +245,12 @@ bool applyCustomisation(const QString &diskPath, const QJsonObject &files, const
     QDir().mkpath(mountPoint);
     QProcess::execute(QStringLiteral("umount"), {mountPoint});
 
-    emitLine("STATUS", QStringLiteral("Einrichtung wird auf die Boot-Partition geschrieben …"));
+    emitLine("STATUS", QCoreApplication::translate("Writer", "Writing setup to the boot partition…"));
     const int mounted = QProcess::execute(QStringLiteral("mount"),
                                            {QStringLiteral("-o"), QStringLiteral("rw"),
                                             partition, mountPoint});
     if (mounted != 0) {
-        *error = QStringLiteral("Die Boot-Partition ließ sich nicht einhängen. Das Abbild ist geschrieben, die Raspberry-Pi-Einrichtung aber nicht.");
+        *error = QCoreApplication::translate("Writer", "The boot partition could not be mounted. The image was written, but the Raspberry Pi setup was not.");
         return false;
     }
 
@@ -257,19 +258,19 @@ bool applyCustomisation(const QString &diskPath, const QJsonObject &files, const
     const QStringList names = files.keys();
     for (const QString &name : names) {
         if (name.contains(QLatin1Char('/')) || name.contains(QLatin1String(".."))) {
-            *error = QStringLiteral("Ungültiger Dateiname in der Einrichtung.");
+            *error = QCoreApplication::translate("Writer", "Invalid file name in the setup.");
             ok = false;
             break;
         }
         QFile file(mountPoint + QLatin1Char('/') + name);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            *error = QStringLiteral("„%1“ konnte nicht geschrieben werden.").arg(name);
+            *error = QCoreApplication::translate("Writer", "Could not write “%1”.").arg(name);
             ok = false;
             break;
         }
         const QByteArray payload = files.value(name).toString().toUtf8();
         if (file.write(payload) != payload.size()) {
-            *error = QStringLiteral("„%1“ ist unvollständig.").arg(name);
+            *error = QCoreApplication::translate("Writer", "“%1” is incomplete.").arg(name);
             ok = false;
             break;
         }
@@ -278,7 +279,7 @@ bool applyCustomisation(const QString &diskPath, const QJsonObject &files, const
     if (ok && !cmdline.isEmpty()) {
         QFile file(mountPoint + QStringLiteral("/cmdline.txt"));
         if (!file.open(QIODevice::ReadOnly)) {
-            *error = QStringLiteral("cmdline.txt fehlt auf der Boot-Partition. Die Einrichtung kann nicht aktiviert werden.");
+            *error = QCoreApplication::translate("Writer", "cmdline.txt is missing on the boot partition. Setup cannot be enabled.");
             ok = false;
         } else {
             QByteArray existing = file.readAll();
@@ -292,7 +293,7 @@ bool applyCustomisation(const QString &diskPath, const QJsonObject &files, const
             existing += '\n';
             if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)
                 || file.write(existing) != existing.size()) {
-                *error = QStringLiteral("cmdline.txt konnte nicht aktualisiert werden.");
+                *error = QCoreApplication::translate("Writer", "cmdline.txt could not be updated.");
                 ok = false;
             }
         }
@@ -301,7 +302,7 @@ bool applyCustomisation(const QString &diskPath, const QJsonObject &files, const
     ::sync();
     const int unmounted = QProcess::execute(QStringLiteral("umount"), {mountPoint});
     if (unmounted != 0 && ok) {
-        *error = QStringLiteral("Die Boot-Partition ließ sich nicht sauber aushängen.");
+        *error = QCoreApplication::translate("Writer", "The boot partition could not be unmounted cleanly.");
         ok = false;
     }
     return ok;
@@ -315,7 +316,7 @@ int runWriteJob(const QString &jobPath, bool allowFile) {
 
     QFile jobFile(jobPath);
     if (!jobFile.open(QIODevice::ReadOnly)) {
-        emitLine("ERROR", QStringLiteral("Auftragsdatei fehlt."));
+        emitLine("ERROR", QCoreApplication::translate("Writer", "The job file is missing."));
         return 1;
     }
     const QJsonObject job = QJsonDocument::fromJson(jobFile.readAll()).object();
@@ -327,7 +328,7 @@ int runWriteJob(const QString &jobPath, bool allowFile) {
     const QByteArray cmdline = job.value(QStringLiteral("cmdline")).toString().toUtf8();
 
     if (source.isEmpty() || device.isEmpty() || !device.startsWith(QLatin1String("/"))) {
-        emitLine("ERROR", QStringLiteral("Der Schreibauftrag ist unvollständig."));
+        emitLine("ERROR", QCoreApplication::translate("Writer", "The write job is incomplete."));
         return 1;
     }
 
@@ -351,21 +352,21 @@ int runWriteJob(const QString &jobPath, bool allowFile) {
             }
         }
         if (!match || match->type != QLatin1String("disk")) {
-            emitLine("ERROR", QStringLiteral("Das Ziel ist kein ganzes Laufwerk."));
+            emitLine("ERROR", QCoreApplication::translate("Writer", "The target is not a whole drive."));
             return 1;
         }
         if (match->system) {
-            emitLine("ERROR", QStringLiteral("Die Systemplatte wird nicht beschrieben."));
+            emitLine("ERROR", QCoreApplication::translate("Writer", "The system disk is not written."));
             return 1;
         }
         if (extractSize > 0 && match->size > 0 && extractSize > match->size) {
-            emitLine("ERROR", QStringLiteral("Das Abbild ist größer als der Stick."));
+            emitLine("ERROR", QCoreApplication::translate("Writer", "The image is larger than the drive."));
             return 1;
         }
-        emitLine("STATUS", QStringLiteral("Laufwerk wird ausgehängt …"));
+        emitLine("STATUS", QCoreApplication::translate("Writer", "Unmounting the drive…"));
         unmountDisk(device);
     } else if (!regularFile && !device.startsWith(QLatin1String("/dev/"))) {
-        emitLine("ERROR", QStringLiteral("Ungültiges Ziel."));
+        emitLine("ERROR", QCoreApplication::translate("Writer", "Invalid target."));
         return 1;
     }
 
@@ -376,14 +377,14 @@ int runWriteJob(const QString &jobPath, bool allowFile) {
         fd = ::open(device.toLocal8Bit().constData(), flags, 0644);
     }
     if (fd < 0) {
-        emitLine("ERROR", QStringLiteral("Laufwerk lässt sich nicht öffnen. Ist es noch eingehängt?"));
+        emitLine("ERROR", QCoreApplication::translate("Writer", "The drive cannot be opened. Is it still mounted?"));
         return 1;
     }
 
     struct stat st;
     if (fstat(fd, &st) != 0 || !(S_ISBLK(st.st_mode) || (allowFile && S_ISREG(st.st_mode)))) {
         ::close(fd);
-        emitLine("ERROR", QStringLiteral("Ziel ist weder ein Laufwerk noch eine Testdatei."));
+        emitLine("ERROR", QCoreApplication::translate("Writer", "The target is neither a drive nor a test file."));
         return 1;
     }
     if (S_ISBLK(st.st_mode) && extractSize > 0) {
@@ -391,12 +392,12 @@ int runWriteJob(const QString &jobPath, bool allowFile) {
         if (ioctl(fd, BLKGETSIZE64, &deviceSize) == 0 && deviceSize > 0
             && static_cast<quint64>(extractSize) > deviceSize) {
             ::close(fd);
-            emitLine("ERROR", QStringLiteral("Das Abbild ist größer als der Stick."));
+            emitLine("ERROR", QCoreApplication::translate("Writer", "The image is larger than the drive."));
             return 1;
         }
     }
 
-    emitLine("STATUS", QStringLiteral("Abbild wird geschrieben …"));
+    emitLine("STATUS", QCoreApplication::translate("Writer", "Writing the image…"));
     QCryptographicHash hash(QCryptographicHash::Sha256);
     qint64 written = 0;
     QString writeError;
@@ -408,16 +409,16 @@ int runWriteJob(const QString &jobPath, bool allowFile) {
     ::sync();
 
     if (!streamed) {
-        emitLine("ERROR", writeError.isEmpty() ? QStringLiteral("Schreiben fehlgeschlagen.") : writeError);
+        emitLine("ERROR", writeError.isEmpty() ? QCoreApplication::translate("Writer", "Writing failed.") : writeError);
         return g_stop ? 2 : 1;
     }
     if (extractSize > 0 && written != extractSize) {
-        emitLine("ERROR", QStringLiteral("Die geschriebene Größe weicht vom Abbild ab."));
+        emitLine("ERROR", QCoreApplication::translate("Writer", "The written size does not match the image."));
         return 1;
     }
     const QString actualHash = QString::fromLatin1(hash.result().toHex());
     if (!expectedHash.isEmpty() && actualHash != expectedHash) {
-        emitLine("ERROR", QStringLiteral("Die Prüfsumme stimmt nicht. Der Stick darf so nicht verwendet werden."));
+        emitLine("ERROR", QCoreApplication::translate("Writer", "The checksum does not match. Do not use this drive."));
         return 1;
     }
 
@@ -431,7 +432,7 @@ int runWriteJob(const QString &jobPath, bool allowFile) {
     }
 
     emitLine("PROGRESS", QString::number(written) + QLatin1Char(' ') + QString::number(qMax(extractSize, written)));
-    emitLine("DONE", QStringLiteral("Fertig. Der Stick kann entfernt werden."));
+    emitLine("DONE", QCoreApplication::translate("Writer", "Done. The drive can be removed."));
     return 0;
 }
 
@@ -439,7 +440,7 @@ bool writerSelfTest(QString *error) {
     QTemporaryDir dir;
     if (!dir.isValid()) {
         if (error)
-            *error = QStringLiteral("Temporäres Verzeichnis fehlt.");
+            *error = QStringLiteral("Temporary directory is missing.");
         return false;
     }
     const QString rawPath = dir.filePath(QStringLiteral("raw.bin"));
@@ -447,7 +448,7 @@ bool writerSelfTest(QString *error) {
     QFile raw(rawPath);
     if (!raw.open(QIODevice::WriteOnly) || raw.write(payload) != payload.size()) {
         if (error)
-            *error = QStringLiteral("Testdatei fehlt.");
+            *error = QStringLiteral("Test file is missing.");
         return false;
     }
     raw.close();
@@ -458,7 +459,7 @@ bool writerSelfTest(QString *error) {
     xz.start(QStringLiteral("xz"), {QStringLiteral("-kf"), rawPath});
     if (!xz.waitForFinished(10000) || xz.exitCode() != 0) {
         if (error)
-            *error = QStringLiteral("xz fehlt für den Schreibtest.");
+            *error = QStringLiteral("xz is missing for the write test.");
         return false;
     }
 
@@ -472,7 +473,7 @@ bool writerSelfTest(QString *error) {
     QFile jobFile(jobPath);
     if (!jobFile.open(QIODevice::WriteOnly)) {
         if (error)
-            *error = QStringLiteral("Auftrag ließ sich nicht schreiben.");
+            *error = QStringLiteral("The job could not be written.");
         return false;
     }
     jobFile.write(QJsonDocument(job).toJson());
@@ -480,27 +481,27 @@ bool writerSelfTest(QString *error) {
 
     if (runWriteJob(jobPath, true) != 0) {
         if (error)
-            *error = QStringLiteral("Schreibtest ist fehlgeschlagen.");
+            *error = QStringLiteral("The write test failed.");
         return false;
     }
     QFile out(outPath);
     if (!out.open(QIODevice::ReadOnly) || out.readAll() != payload) {
         if (error)
-            *error = QStringLiteral("Entpackter Inhalt weicht ab.");
+            *error = QStringLiteral("Decompressed contents differ.");
         return false;
     }
 
     job.insert(QStringLiteral("extractSha256"), QStringLiteral("00"));
     if (!jobFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         if (error)
-            *error = QStringLiteral("Auftrag ließ sich nicht schreiben.");
+            *error = QStringLiteral("The job could not be written.");
         return false;
     }
     jobFile.write(QJsonDocument(job).toJson());
     jobFile.close();
     if (runWriteJob(jobPath, true) == 0) {
         if (error)
-            *error = QStringLiteral("Falsche Prüfsumme wurde akzeptiert.");
+            *error = QStringLiteral("A wrong checksum was accepted.");
         return false;
     }
     return true;

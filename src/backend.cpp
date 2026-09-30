@@ -181,12 +181,12 @@ QString Backend::defaultLocale() const {
     const QString name = QLocale::system().name();
     if (name.contains(QLatin1Char('_')))
         return name + QStringLiteral(".UTF-8");
-    return QStringLiteral("de_DE.UTF-8");
+    return QStringLiteral("en_US.UTF-8");
 }
 
 QString Backend::defaultTimezone() const {
     const QByteArray id = QTimeZone::systemTimeZoneId();
-    return id.isEmpty() ? QStringLiteral("Europe/Berlin") : QString::fromUtf8(id);
+    return id.isEmpty() ? QStringLiteral("UTC") : QString::fromUtf8(id);
 }
 
 QString Backend::defaultKeyboard() const {
@@ -202,14 +202,14 @@ QString Backend::defaultKeyboard() const {
 
 QString Backend::defaultCountry() const {
     const QString territory = QLocale::territoryToCode(QLocale::system().territory()).toUpper();
-    return territory.size() == 2 ? territory : QStringLiteral("DE");
+    return territory.size() == 2 ? territory : QStringLiteral("US");
 }
 
 QString Backend::crumb() const {
     if (!m_search.isEmpty())
-        return QStringLiteral("Suche");
+        return Backend::tr("Search");
     if (m_path.isEmpty())
-        return QStringLiteral("Abbilder");
+        return Backend::tr("Images");
     return m_path.join(QStringLiteral("  /  "));
 }
 
@@ -289,18 +289,18 @@ void Backend::refreshCatalog() {
     const int generation = m_fetchGeneration;
     m_fetchesLeft = m_repoUrls.size();
     if (m_fetchesLeft == 0) {
-        setStatus(QStringLiteral("Keine Katalog-URL hinterlegt."));
+        setStatus(Backend::tr("No catalog URL configured."));
         rebuildEntries();
         return;
     }
-    setStatus(QStringLiteral("Abbilderliste wird geladen …"));
+    setStatus(Backend::tr("Loading image list…"));
     for (const QString &url : m_repoUrls) {
         const QUrl parsed(url);
         if (parsed.isLocalFile() || QFileInfo(url).isAbsolute()) {
             const QString path = parsed.isLocalFile() ? parsed.toLocalFile() : url;
             QFile file(path);
             if (!file.open(QIODevice::ReadOnly))
-                ingestRepo(url, {}, QStringLiteral("Datei nicht lesbar."));
+                ingestRepo(url, {}, Backend::tr("File is not readable."));
             else
                 ingestRepo(url, file.readAll(), {});
             continue;
@@ -337,7 +337,7 @@ void Backend::ingestRepo(const QString &url, const QByteArray &body, const QStri
         const QJsonDocument document = QJsonDocument::fromJson(body, &parseError);
         if (parseError.error != QJsonParseError::NoError || !document.isObject()
             || !document.object().contains(QStringLiteral("os_list"))) {
-            repo.error = QStringLiteral("Kein Abbildkatalog.");
+            repo.error = Backend::tr("Not an image catalog.");
         } else {
             repo.root = document.object();
         }
@@ -375,16 +375,16 @@ void Backend::ingestRepo(const QString &url, const QByteArray &body, const QStri
     if (!problems.isEmpty() && images == 0)
         setStatus(problems.join(QStringLiteral(" ")));
     else if (!problems.isEmpty())
-        setStatus(QStringLiteral("Liste geladen, eine Quelle ist fehlgeschlagen."));
+        setStatus(Backend::tr("List loaded, one source failed."));
     else
-        setStatus(QStringLiteral("Aktuelle Abbilder geladen."));
+        setStatus(Backend::tr("Current images loaded."));
     emit catalogChanged();
 }
 
 void Backend::rebuildFilters() {
     m_deviceFilters.clear();
     QVariantMap all;
-    all.insert(QStringLiteral("name"), QStringLiteral("Alle Geräte"));
+    all.insert(QStringLiteral("name"), Backend::tr("All devices"));
     all.insert(QStringLiteral("tags"), QStringList{});
     all.insert(QStringLiteral("exclusive"), false);
     m_deviceFilters.append(all);
@@ -453,8 +453,8 @@ QJsonArray Backend::virtualRoot() const {
     QJsonArray root;
     if (!m_direct.isEmpty()) {
         QJsonObject category;
-        category.insert(QStringLiteral("name"), QStringLiteral("Eigene Abbilder"));
-        category.insert(QStringLiteral("description"), QStringLiteral("Direkt verknüpfte ISO- und Image-Dateien"));
+        category.insert(QStringLiteral("name"), Backend::tr("Custom images"));
+        category.insert(QStringLiteral("description"), Backend::tr("Directly linked ISO and image files"));
         category.insert(QStringLiteral("unfiltered"), true);
         QJsonArray children;
         for (const QVariantMap &image : m_direct) {
@@ -515,9 +515,9 @@ QVariantMap Backend::entryFromJson(const QJsonObject &os, bool category) const {
     if (!date.isEmpty())
         meta << date;
     if (!category && initFormatSupportsCustomisation(format))
-        meta << QStringLiteral("Einrichtung möglich");
+        meta << Backend::tr("Customisation available");
     else if (!category && !format.isEmpty())
-        meta << QStringLiteral("nur Schreiben");
+        meta << Backend::tr("Write only");
     map.insert(QStringLiteral("meta"), meta.join(QStringLiteral("  ·  ")));
     return map;
 }
@@ -635,8 +635,8 @@ void Backend::selectImage(const QVariantMap &image) {
 
 void Backend::chooseLocalImage() {
     const QString path = QFileDialog::getOpenFileName(
-        nullptr, QStringLiteral("Abbild wählen"), QDir::homePath(),
-        QStringLiteral("Abbilder (*.img *.iso *.xz *.gz *.zip *.zst *.img.xz *.iso.xz);;Alle Dateien (*)"));
+        nullptr, Backend::tr("Choose image"), QDir::homePath(),
+        Backend::tr("Images (*.img *.iso *.xz *.gz *.zip *.zst *.img.xz *.iso.xz);;All files (*)"));
     if (path.isEmpty())
         return;
     QVariantMap image;
@@ -672,7 +672,7 @@ void Backend::addRepository(const QString &url) {
     const QUrl parsed(trimmed);
     const bool local = parsed.isLocalFile() || QFileInfo(trimmed).isAbsolute();
     if (!local && parsed.scheme() != QLatin1String("https") && parsed.scheme() != QLatin1String("http")) {
-        setStatus(QStringLiteral("Die Katalog-URL braucht http oder https."));
+        setStatus(Backend::tr("The catalog URL needs http or https."));
         return;
     }
     m_repoUrls.append(trimmed);
@@ -703,7 +703,7 @@ void Backend::addDirectImage(const QString &name, const QString &url, const QStr
     const QUrl parsed(trimmedUrl);
     const bool local = parsed.isLocalFile() || QFileInfo(trimmedUrl).isAbsolute();
     if (!local && parsed.scheme() != QLatin1String("https") && parsed.scheme() != QLatin1String("http")) {
-        setStatus(QStringLiteral("Die Abbild-URL braucht http oder https."));
+        setStatus(Backend::tr("The image URL needs http or https."));
         return;
     }
     for (const QVariantMap &image : m_direct) {
@@ -754,7 +754,7 @@ void Backend::refreshDrives(bool includeInternal) {
         if (drive.tran == QLatin1String("usb") || drive.removable)
             detail << QStringLiteral("USB");
         else
-            detail << QStringLiteral("intern");
+            detail << Backend::tr("internal");
         map.insert(QStringLiteral("detail"), detail.join(QStringLiteral("  ·  ")));
         map.insert(QStringLiteral("size"), drive.size);
         m_drives.append(map);
@@ -795,8 +795,8 @@ void Backend::rememberSetup(QVariantMap settings) const {
 
 QString Backend::pickSshKeys() {
     const QString path = QFileDialog::getOpenFileName(
-        nullptr, QStringLiteral("Öffentlichen SSH-Schlüssel wählen"), QDir::homePath(),
-        QStringLiteral("Schlüssel (*.pub);;Textdateien (*.txt);;Alle Dateien (*)"));
+        nullptr, Backend::tr("Choose a public SSH key"), QDir::homePath(),
+        Backend::tr("Keys (*.pub);;Text files (*.txt);;All files (*)"));
     if (path.isEmpty())
         return {};
     QFile file(path);
@@ -849,16 +849,16 @@ void Backend::startWrite(const QVariantMap &settings) {
     if (m_busy)
         return;
     if (!hasSelection()) {
-        emit failed(QStringLiteral("Zuerst ein Abbild wählen."));
+        emit failed(Backend::tr("Choose an image first."));
         return;
     }
     if (m_drivePath.isEmpty()) {
-        emit failed(QStringLiteral("Zuerst einen USB-Stick wählen."));
+        emit failed(Backend::tr("Choose a USB drive first."));
         return;
     }
     if (settings.value(QStringLiteral("password")).toString()
         != settings.value(QStringLiteral("password2")).toString()) {
-        emit failed(QStringLiteral("Die Passwörter stimmen nicht überein."));
+        emit failed(Backend::tr("The passwords do not match."));
         return;
     }
 
@@ -899,7 +899,7 @@ void Backend::startWrite(const QVariantMap &settings) {
     m_pendingExtractSize = m_selection.value(QStringLiteral("extractSize")).toLongLong();
     m_pendingExtractHash = m_selection.value(QStringLiteral("extractSha256")).toString();
     if (m_pendingExtractSize > 0 && m_driveSize > 0 && m_pendingExtractSize > m_driveSize) {
-        emit failed(QStringLiteral("Das Abbild ist größer als der Stick."));
+        emit failed(Backend::tr("The image is larger than the drive."));
         return;
     }
 
@@ -910,8 +910,8 @@ void Backend::startWrite(const QVariantMap &settings) {
     m_log.clear();
     emit logChanged();
     setBusy(true);
-    appendLog(QStringLiteral("Ziel: %1").arg(m_drivePath));
-    appendLog(QStringLiteral("Abbild: %1").arg(m_selection.value(QStringLiteral("name")).toString()));
+    appendLog(Backend::tr("Target: %1").arg(m_drivePath));
+    appendLog(Backend::tr("Image: %1").arg(m_selection.value(QStringLiteral("name")).toString()));
 
     const QString local = m_selection.value(QStringLiteral("localPath")).toString();
     if (!local.isEmpty())
@@ -935,7 +935,7 @@ void Backend::beginDownload(const QString &url) {
     const QString target = cachePathFor(url);
     const qint64 expected = m_selection.value(QStringLiteral("downloadSize")).toLongLong();
     if (QFileInfo::exists(target) && (expected <= 0 || QFileInfo(target).size() == expected)) {
-        appendLog(QStringLiteral("Bereits heruntergeladen, schreibe aus dem Zwischenspeicher."));
+        appendLog(Backend::tr("Already downloaded, writing from cache."));
         launchWriter(target);
         return;
     }
@@ -947,13 +947,13 @@ void Backend::beginDownload(const QString &url) {
     m_downloadTarget = target + QStringLiteral(".part");
     m_downloadFile = new QFile(m_downloadTarget, this);
     if (!m_downloadFile->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        fail(QStringLiteral("Zwischenspeicher ist nicht beschreibbar."));
+        fail(Backend::tr("Cache is not writable."));
         delete m_downloadFile;
         m_downloadFile = nullptr;
         return;
     }
-    setProgress(0, QStringLiteral("Herunterladen …"));
-    appendLog(QStringLiteral("Lade %1").arg(url));
+    setProgress(0, Backend::tr("Downloading…"));
+    appendLog(Backend::tr("Loading %1").arg(url));
     m_reply = m_nam.get(request);
     connect(m_reply, &QNetworkReply::readyRead, this, [this]() {
         if (m_downloadFile && m_reply)
@@ -962,7 +962,7 @@ void Backend::beginDownload(const QString &url) {
     connect(m_reply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
         const qint64 expected = total > 0 ? total : m_selection.value(QStringLiteral("downloadSize")).toLongLong();
         const qreal value = expected > 0 ? qreal(received) / qreal(expected) : -1;
-        setProgress(value, QStringLiteral("Herunterladen  %1 / %2")
+        setProgress(value, Backend::tr("Downloading  %1 / %2")
                                .arg(formatBytes(received), expected > 0 ? formatBytes(expected) : QStringLiteral("?")));
     });
     connect(m_reply, &QNetworkReply::finished, this, [this, target]() {
@@ -983,12 +983,12 @@ void Backend::beginDownload(const QString &url) {
             return;
         if (failedDownload) {
             QFile::remove(m_downloadTarget);
-            fail(QStringLiteral("Download fehlgeschlagen: %1").arg(error));
+            fail(Backend::tr("Download failed: %1").arg(error));
             return;
         }
         QFile::remove(target);
         if (!QFile::rename(m_downloadTarget, target)) {
-            fail(QStringLiteral("Die heruntergeladene Datei ließ sich nicht speichern."));
+            fail(Backend::tr("The downloaded file could not be saved."));
             return;
         }
         launchWriter(target);
@@ -997,14 +997,14 @@ void Backend::beginDownload(const QString &url) {
 
 void Backend::launchWriter(const QString &imagePath) {
     if (!QFileInfo::exists(imagePath)) {
-        fail(QStringLiteral("Die Abbilddatei fehlt."));
+        fail(Backend::tr("The image file is missing."));
         return;
     }
     m_jobFile = new QTemporaryFile(this);
     m_jobFile->setAutoRemove(true);
     m_jobFile->setFileTemplate(QDir::tempPath() + QStringLiteral("/omaimage-job-XXXXXX.json"));
     if (!m_jobFile->open()) {
-        fail(QStringLiteral("Auftragsdatei ließ sich nicht anlegen."));
+        fail(Backend::tr("The job file could not be created."));
         return;
     }
     QJsonObject files;
@@ -1021,8 +1021,8 @@ void Backend::launchWriter(const QString &imagePath) {
     m_jobFile->flush();
     m_jobFile->setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 
-    setProgress(0, QStringLiteral("Warte auf Freigabe …"));
-    appendLog(QStringLiteral("Frage Administratorrechte an …"));
+    setProgress(0, Backend::tr("Waiting for authorisation…"));
+    appendLog(Backend::tr("Requesting administrator rights…"));
     m_writer = new QProcess(this);
     m_writer->setProcessChannelMode(QProcess::SeparateChannels);
     connect(m_writer, &QProcess::readyReadStandardOutput, this, [this]() {
@@ -1049,7 +1049,7 @@ void Backend::launchWriter(const QString &imagePath) {
     });
     connect(m_writer, &QProcess::errorOccurred, this, [this](QProcess::ProcessError) {
         if (!m_settled && m_writer && m_writer->state() == QProcess::NotRunning)
-            fail(QStringLiteral("pkexec konnte nicht gestartet werden."));
+            fail(Backend::tr("pkexec could not be started."));
     });
     m_writer->start(QStringLiteral("pkexec"),
                     {QCoreApplication::applicationFilePath(), QStringLiteral("--write-job"),
@@ -1067,7 +1067,7 @@ void Backend::handleWriterLine(const QString &line) {
             const qint64 done = parts.at(0).toLongLong();
             const qint64 total = parts.at(1).toLongLong();
             const qreal value = total > 0 ? qreal(done) / qreal(total) : -1;
-            setProgress(value, QStringLiteral("Schreiben  %1 / %2")
+            setProgress(value, Backend::tr("Writing  %1 / %2")
                                    .arg(formatBytes(done), total > 0 ? formatBytes(total) : QStringLiteral("?")));
         }
     } else if (line.startsWith(QLatin1String("DONE "))) {
@@ -1085,11 +1085,11 @@ void Backend::finishWriter(int exitCode) {
     if (m_settled)
         return;
     if (exitCode == 0)
-        succeed(QStringLiteral("Fertig. Der Stick kann entfernt werden."));
+        succeed(Backend::tr("Done. The drive can be removed."));
     else if (exitCode == 126 || exitCode == 127)
-        fail(QStringLiteral("Die Administratorfreigabe wurde abgelehnt."));
+        fail(Backend::tr("Administrator authorisation was denied."));
     else
-        fail(QStringLiteral("Schreiben ist fehlgeschlagen."));
+        fail(Backend::tr("Writing failed."));
 }
 
 void Backend::cancelWrite() {
@@ -1098,9 +1098,9 @@ void Backend::cancelWrite() {
     }
     if (m_writer && m_writer->state() != QProcess::NotRunning) {
         m_writer->terminate();
-        appendLog(QStringLiteral("Abbruch angefordert …"));
+        appendLog(Backend::tr("Cancellation requested…"));
     } else if (!m_settled && m_busy) {
-        fail(QStringLiteral("Abgebrochen."));
+        fail(Backend::tr("Cancelled."));
     }
 }
 

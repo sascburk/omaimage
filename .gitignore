@@ -5,3 +5,6 @@ moc_*
 qrc_*
 omaimage
 .cache/
+*.qm
+.qm/
+qmake_qmake_qm_files.qrc
