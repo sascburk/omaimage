@@ -2,6 +2,8 @@
 
 A small Qt Quick app in the style of Omawrite and Omacalc. It writes ISO and image files to a USB drive and sets up Raspberry Pi images so the Pi boots straight away the first time it is plugged in.
 
+![Omaimage main screen](docs/main-image.png)
+
 The list comes from `https://downloads.raspberrypi.com/os_list_imagingutility_v4.json`, the same current images as Raspberry Pi Imager. Extra catalog URLs in that JSON format, and single download links, can be added in the app.
 
 For Raspberry Pi OS you can set the user, password, Wi-Fi, country, keyboard, time zone, locale, SSH, hostname, interfaces, and Raspberry Pi Connect. Current images get cloud-init (`user-data`, `network-config`). Older images get a `firstrun.sh`.
