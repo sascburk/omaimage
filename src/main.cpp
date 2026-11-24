@@ -58,6 +58,8 @@ int main(int argc, char *argv[]) {
 
     QApplication app(argc, argv);
     installTranslations(&app);
+    // One wheel notch travels a bit further than the desktop default of three lines.
+    QApplication::setWheelScrollLines(5);
     app.setApplicationName(QStringLiteral("omaimage"));
     app.setOrganizationName(QStringLiteral("Omaimage"));
     app.setDesktopFileName(QStringLiteral("omaimage"));

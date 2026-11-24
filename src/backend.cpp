@@ -17,9 +17,15 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryFile>
+#include <QTimer>
 #include <QTimeZone>
 #include <QUrl>
 #include <QVariant>
+
+#include <algorithm>
+
+#include <csignal>
+#include <unistd.h>
 
 namespace {
 
@@ -48,6 +54,43 @@ qint64 jsonInt(const QJsonValue &value) {
     if (value.isString())
         return value.toString().toLongLong();
     return value.toInteger();
+}
+
+QVariantMap choice(const QString &label, const QString &value) {
+    QVariantMap map;
+    map.insert(QStringLiteral("label"), label);
+    map.insert(QStringLiteral("value"), value);
+    return map;
+}
+
+QString localeValue(const QLocale &locale) {
+    const QString name = locale.name();
+    if (!name.contains(QLatin1Char('_')) || locale.language() == QLocale::C)
+        return {};
+    return name.contains(QLatin1Char('.')) ? name : name + QStringLiteral(".UTF-8");
+}
+
+QString localeLabel(const QLocale &locale) {
+    QString language = locale.nativeLanguageName();
+    if (language.isEmpty())
+        return locale.name();
+    language.replace(0, 1, language.at(0).toUpper());
+    const QString territory = locale.nativeTerritoryName();
+    if (territory.isEmpty())
+        return language;
+    return language + QStringLiteral(" (") + territory + QLatin1Char(')');
+}
+
+void addLocale(QVariantList *list, QStringList *seen, const QLocale &locale) {
+    const QString value = localeValue(locale);
+    if (value.isEmpty() || seen->contains(value))
+        return;
+    seen->append(value);
+    list->append(choice(localeLabel(locale), value));
+}
+
+QString savedSetupField(const QString &key) {
+    return QSettings().value(QStringLiteral("setup")).toMap().value(key).toString().trimmed();
 }
 
 } // namespace
@@ -178,9 +221,8 @@ void Backend::watchTheme() {
 }
 
 QString Backend::defaultLocale() const {
-    const QString name = QLocale::system().name();
-    if (name.contains(QLatin1Char('_')))
-        return name + QStringLiteral(".UTF-8");
+    // The installed system starts in English. The keyboard layout stays on
+    // the machine default, so a German keyboard still types into an English Pi.
     return QStringLiteral("en_US.UTF-8");
 }
 
@@ -203,6 +245,165 @@ QString Backend::defaultKeyboard() const {
 QString Backend::defaultCountry() const {
     const QString territory = QLocale::territoryToCode(QLocale::system().territory()).toUpper();
     return territory.size() == 2 ? territory : QStringLiteral("US");
+}
+
+QVariantList Backend::locales() const {
+    static const struct {
+        QLocale::Language language;
+        QLocale::Territory territory;
+    } table[] = {
+        {QLocale::German, QLocale::Germany},
+        {QLocale::German, QLocale::Austria},
+        {QLocale::German, QLocale::Switzerland},
+        {QLocale::English, QLocale::UnitedStates},
+        {QLocale::English, QLocale::UnitedKingdom},
+        {QLocale::English, QLocale::Australia},
+        {QLocale::English, QLocale::Canada},
+        {QLocale::English, QLocale::NewZealand},
+        {QLocale::English, QLocale::Ireland},
+        {QLocale::French, QLocale::France},
+        {QLocale::French, QLocale::Belgium},
+        {QLocale::French, QLocale::Switzerland},
+        {QLocale::French, QLocale::Canada},
+        {QLocale::Dutch, QLocale::Netherlands},
+        {QLocale::Dutch, QLocale::Belgium},
+        {QLocale::Italian, QLocale::Italy},
+        {QLocale::Italian, QLocale::Switzerland},
+        {QLocale::Spanish, QLocale::Spain},
+        {QLocale::Spanish, QLocale::Mexico},
+        {QLocale::Spanish, QLocale::Argentina},
+        {QLocale::Portuguese, QLocale::Portugal},
+        {QLocale::Portuguese, QLocale::Brazil},
+        {QLocale::Polish, QLocale::Poland},
+        {QLocale::Czech, QLocale::Czechia},
+        {QLocale::Danish, QLocale::Denmark},
+        {QLocale::Swedish, QLocale::Sweden},
+        {QLocale::NorwegianBokmal, QLocale::Norway},
+        {QLocale::Finnish, QLocale::Finland},
+        {QLocale::Hungarian, QLocale::Hungary},
+        {QLocale::Turkish, QLocale::Turkey},
+        {QLocale::Russian, QLocale::Russia},
+        {QLocale::Ukrainian, QLocale::Ukraine},
+        {QLocale::Japanese, QLocale::Japan},
+        {QLocale::Korean, QLocale::SouthKorea},
+        {QLocale::Chinese, QLocale::China},
+        {QLocale::Chinese, QLocale::Taiwan},
+        {QLocale::Greek, QLocale::Greece},
+        {QLocale::Romanian, QLocale::Romania},
+        {QLocale::Bulgarian, QLocale::Bulgaria},
+        {QLocale::Croatian, QLocale::Croatia},
+        {QLocale::Slovak, QLocale::Slovakia},
+        {QLocale::Slovenian, QLocale::Slovenia},
+        {QLocale::Serbian, QLocale::Serbia},
+        {QLocale::Lithuanian, QLocale::Lithuania},
+        {QLocale::Latvian, QLocale::Latvia},
+        {QLocale::Estonian, QLocale::Estonia},
+        {QLocale::Icelandic, QLocale::Iceland},
+        {QLocale::Catalan, QLocale::Spain},
+        {QLocale::Arabic, QLocale::Egypt},
+        {QLocale::Hebrew, QLocale::Israel},
+        {QLocale::Hindi, QLocale::India},
+        {QLocale::Thai, QLocale::Thailand},
+        {QLocale::Indonesian, QLocale::Indonesia},
+        {QLocale::Vietnamese, QLocale::Vietnam},
+        {QLocale::Afrikaans, QLocale::SouthAfrica},
+    };
+
+    QVariantList list;
+    QStringList seen;
+    addLocale(&list, &seen, QLocale::system());
+    const QString saved = savedSetupField(QStringLiteral("locale"));
+    if (!saved.isEmpty())
+        addLocale(&list, &seen, QLocale(saved.section(QLatin1Char('.'), 0, 0)));
+    for (const auto &entry : table)
+        addLocale(&list, &seen, QLocale(entry.language, entry.territory));
+
+    std::sort(list.begin(), list.end(), [](const QVariant &left, const QVariant &right) {
+        return left.toMap().value(QStringLiteral("label")).toString().localeAwareCompare(
+                   right.toMap().value(QStringLiteral("label")).toString())
+            < 0;
+    });
+    // Index 0 is what the closed box shows before a saved value is applied.
+    // Keep English there so the alphabetical first entry, Afrikaans, is not the default.
+    for (int index = 0; index < list.size(); ++index) {
+        if (list.at(index).toMap().value(QStringLiteral("value")).toString()
+            == QLatin1String("en_US.UTF-8")) {
+            list.move(index, 0);
+            break;
+        }
+    }
+    return list;
+}
+
+QVariantList Backend::timezones() const {
+    QStringList zones;
+    const QList<QByteArray> ids = QTimeZone::availableTimeZoneIds();
+    for (const QByteArray &id : ids) {
+        const QString zone = QString::fromUtf8(id);
+        if (zone.startsWith(QLatin1String("Etc/")) || zone.startsWith(QLatin1String("SystemV/"))
+            || zone.startsWith(QLatin1String("posix/")) || zone.startsWith(QLatin1String("right/")))
+            continue;
+        if (!zone.contains(QLatin1Char('/')) && zone != QLatin1String("UTC"))
+            continue;
+        zones.append(zone);
+    }
+    const QString systemZone = defaultTimezone();
+    if (!systemZone.isEmpty() && !zones.contains(systemZone))
+        zones.append(systemZone);
+    const QString saved = savedSetupField(QStringLiteral("timezone"));
+    if (!saved.isEmpty() && !zones.contains(saved))
+        zones.append(saved);
+    zones.sort();
+
+    QVariantList list;
+    for (const QString &zone : zones)
+        list.append(choice(zone, zone));
+    return list;
+}
+
+QVariantList Backend::keyboards() const {
+    static const struct {
+        const char *layout;
+        QLocale::Language language;
+        QLocale::Territory territory;
+    } table[] = {
+        {"de", QLocale::German, QLocale::Germany},
+        {"us", QLocale::English, QLocale::UnitedStates},
+        {"gb", QLocale::English, QLocale::UnitedKingdom},
+        {"fr", QLocale::French, QLocale::France},
+        {"ch", QLocale::German, QLocale::Switzerland},
+        {"at", QLocale::German, QLocale::Austria},
+        {"nl", QLocale::Dutch, QLocale::Netherlands},
+        {"es", QLocale::Spanish, QLocale::Spain},
+        {"it", QLocale::Italian, QLocale::Italy},
+        {"pt", QLocale::Portuguese, QLocale::Portugal},
+        {"pl", QLocale::Polish, QLocale::Poland},
+        {"se", QLocale::Swedish, QLocale::Sweden},
+        {"dk", QLocale::Danish, QLocale::Denmark},
+        {"no", QLocale::NorwegianBokmal, QLocale::Norway},
+        {"fi", QLocale::Finnish, QLocale::Finland},
+        {"cz", QLocale::Czech, QLocale::Czechia},
+        {"hu", QLocale::Hungarian, QLocale::Hungary},
+        {"tr", QLocale::Turkish, QLocale::Turkey},
+        {"ru", QLocale::Russian, QLocale::Russia},
+        {"jp", QLocale::Japanese, QLocale::Japan},
+    };
+
+    QVariantList list;
+    QStringList seen;
+    for (const auto &entry : table) {
+        const QString layout = QString::fromLatin1(entry.layout);
+        seen.append(layout);
+        const QLocale locale(entry.language, entry.territory);
+        list.append(choice(localeLabel(locale), layout));
+    }
+    const QString saved = savedSetupField(QStringLiteral("keyboard"));
+    if (!saved.isEmpty() && !seen.contains(saved))
+        list.append(choice(saved, saved));
+    const QString fallback = defaultKeyboard();
+    if (!fallback.isEmpty() && !seen.contains(fallback) && fallback != saved)
+        list.append(choice(fallback, fallback));
+    return list;
 }
 
 QString Backend::crumb() const {
@@ -825,10 +1026,55 @@ void Backend::setProgress(qreal progress, const QString &label) {
     emit progressChanged();
 }
 
+void Backend::stopActiveWork() {
+    // A failed attempt used to leave pkexec running and the next finished
+    // signal wrote into the following attempt, so a second write needed a restart.
+    ++m_writeGeneration;
+
+    if (m_reply) {
+        QNetworkReply *reply = m_reply;
+        m_reply = nullptr;
+        reply->disconnect(this);
+        reply->abort();
+        reply->deleteLater();
+    }
+    if (m_downloadFile) {
+        const QString partial = m_downloadTarget;
+        m_downloadFile->close();
+        delete m_downloadFile;
+        m_downloadFile = nullptr;
+        if (!partial.isEmpty())
+            QFile::remove(partial);
+    }
+    if (m_writer) {
+        QProcess *writer = m_writer;
+        m_writer = nullptr;
+        writer->disconnect(this);
+        // Kill on the next turn so this is safe from inside the process's own
+        // readyRead or finished handler, and a new attempt cannot start while
+        // the old pkexec still holds the drive.
+        QTimer::singleShot(0, writer, [writer] {
+            if (writer->state() != QProcess::NotRunning) {
+                const qint64 pid = writer->processId();
+                if (pid > 1)
+                    ::kill(-static_cast<pid_t>(pid), SIGKILL);
+                writer->kill();
+            }
+            writer->deleteLater();
+        });
+    }
+    m_writerBuffer.clear();
+    delete m_jobFile;
+    m_jobFile = nullptr;
+}
+
 void Backend::fail(const QString &message) {
-    if (m_settled)
+    if (m_settled) {
+        setBusy(false);
         return;
+    }
     m_settled = true;
+    stopActiveWork();
     appendLog(message);
     setBusy(false);
     setProgress(0, QString());
@@ -839,6 +1085,7 @@ void Backend::succeed(const QString &message) {
     if (m_settled)
         return;
     m_settled = true;
+    stopActiveWork();
     appendLog(message);
     setBusy(false);
     setProgress(1, message);
@@ -906,6 +1153,7 @@ void Backend::startWrite(const QVariantMap &settings) {
     m_pendingFiles = custom.files;
     m_pendingCmdline = custom.cmdlineAppend;
     rememberSetup(settings);
+    stopActiveWork();
     m_settled = false;
     m_log.clear();
     emit logChanged();
@@ -954,22 +1202,27 @@ void Backend::beginDownload(const QString &url) {
     }
     setProgress(0, Backend::tr("Downloading…"));
     appendLog(Backend::tr("Loading %1").arg(url));
+    const int generation = m_writeGeneration;
     m_reply = m_nam.get(request);
-    connect(m_reply, &QNetworkReply::readyRead, this, [this]() {
-        if (m_downloadFile && m_reply)
-            m_downloadFile->write(m_reply->readAll());
+    QNetworkReply *reply = m_reply;
+    connect(reply, &QNetworkReply::readyRead, this, [this, reply, generation]() {
+        if (generation != m_writeGeneration || m_downloadFile == nullptr || m_reply != reply)
+            return;
+        m_downloadFile->write(reply->readAll());
     });
-    connect(m_reply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+    connect(reply, &QNetworkReply::downloadProgress, this, [this, generation](qint64 received, qint64 total) {
+        if (generation != m_writeGeneration)
+            return;
         const qint64 expected = total > 0 ? total : m_selection.value(QStringLiteral("downloadSize")).toLongLong();
         const qreal value = expected > 0 ? qreal(received) / qreal(expected) : -1;
         setProgress(value, Backend::tr("Downloading  %1 / %2")
                                .arg(formatBytes(received), expected > 0 ? formatBytes(expected) : QStringLiteral("?")));
     });
-    connect(m_reply, &QNetworkReply::finished, this, [this, target]() {
-        if (!m_reply)
+    connect(reply, &QNetworkReply::finished, this, [this, reply, target, generation]() {
+        if (generation != m_writeGeneration)
             return;
-        QNetworkReply *reply = m_reply;
-        m_reply = nullptr;
+        if (m_reply == reply)
+            m_reply = nullptr;
         const bool failedDownload = reply->error() != QNetworkReply::NoError;
         const QString error = reply->errorString();
         if (m_downloadFile) {
@@ -1023,11 +1276,18 @@ void Backend::launchWriter(const QString &imagePath) {
 
     setProgress(0, Backend::tr("Waiting for authorisation…"));
     appendLog(Backend::tr("Requesting administrator rights…"));
+    const int generation = m_writeGeneration;
     m_writer = new QProcess(this);
     m_writer->setProcessChannelMode(QProcess::SeparateChannels);
-    connect(m_writer, &QProcess::readyReadStandardOutput, this, [this]() {
-        m_writerBuffer += m_writer->readAllStandardOutput();
-        while (true) {
+    m_writer->setChildProcessModifier([] {
+        ::setpgid(0, 0);
+    });
+    QProcess *writer = m_writer;
+    connect(writer, &QProcess::readyReadStandardOutput, this, [this, writer, generation]() {
+        if (generation != m_writeGeneration || m_writer != writer)
+            return;
+        m_writerBuffer += writer->readAllStandardOutput();
+        while (generation == m_writeGeneration) {
             const int newline = m_writerBuffer.indexOf('\n');
             if (newline < 0)
                 break;
@@ -1036,24 +1296,41 @@ void Backend::launchWriter(const QString &imagePath) {
             handleWriterLine(line);
         }
     });
-    connect(m_writer, &QProcess::readyReadStandardError, this, [this]() {
-        const QString text = QString::fromUtf8(m_writer->readAllStandardError()).trimmed();
+    connect(writer, &QProcess::readyReadStandardError, this, [this, writer, generation]() {
+        if (generation != m_writeGeneration || m_writer != writer)
+            return;
+        const QString text = QString::fromUtf8(writer->readAllStandardError()).trimmed();
         if (!text.isEmpty())
             appendLog(text);
     });
-    connect(m_writer, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus) {
-        if (!m_writerBuffer.trimmed().isEmpty())
-            handleWriterLine(QString::fromUtf8(m_writerBuffer).trimmed());
-        m_writerBuffer.clear();
-        finishWriter(exitCode);
+    connect(writer, &QProcess::finished, this, [this, writer, generation](int exitCode, QProcess::ExitStatus) {
+        if (generation != m_writeGeneration || m_writer != writer)
+            return;
+        if (!m_writerBuffer.trimmed().isEmpty()) {
+            const QString pending = QString::fromUtf8(m_writerBuffer).trimmed();
+            m_writerBuffer.clear();
+            handleWriterLine(pending);
+        }
+        if (generation != m_writeGeneration || m_settled)
+            return;
+        if (exitCode == 0)
+            succeed(Backend::tr("Done. The drive can be removed."));
+        else if (exitCode == 126 || exitCode == 127)
+            fail(Backend::tr("Administrator authorisation was denied."));
+        else
+            fail(Backend::tr("Writing failed."));
     });
-    connect(m_writer, &QProcess::errorOccurred, this, [this](QProcess::ProcessError) {
-        if (!m_settled && m_writer && m_writer->state() == QProcess::NotRunning)
+    connect(writer, &QProcess::errorOccurred, this, [this, writer, generation](QProcess::ProcessError error) {
+        if (generation != m_writeGeneration || m_writer != writer || m_settled)
+            return;
+        if (error == QProcess::FailedToStart)
             fail(Backend::tr("pkexec could not be started."));
+        else if (writer->state() == QProcess::NotRunning)
+            fail(Backend::tr("Writing failed."));
     });
-    m_writer->start(QStringLiteral("pkexec"),
-                    {QCoreApplication::applicationFilePath(), QStringLiteral("--write-job"),
-                     m_jobFile->fileName()});
+    writer->start(QStringLiteral("pkexec"),
+                  {QCoreApplication::applicationFilePath(), QStringLiteral("--write-job"),
+                   m_jobFile->fileName()});
 }
 
 void Backend::handleWriterLine(const QString &line) {
@@ -1077,31 +1354,17 @@ void Backend::handleWriterLine(const QString &line) {
     }
 }
 
-void Backend::finishWriter(int exitCode) {
-    m_writer->deleteLater();
-    m_writer = nullptr;
-    delete m_jobFile;
-    m_jobFile = nullptr;
-    if (m_settled)
-        return;
-    if (exitCode == 0)
-        succeed(Backend::tr("Done. The drive can be removed."));
-    else if (exitCode == 126 || exitCode == 127)
-        fail(Backend::tr("Administrator authorisation was denied."));
-    else
-        fail(Backend::tr("Writing failed."));
-}
-
 void Backend::cancelWrite() {
-    if (m_reply) {
-        m_reply->abort();
+    if (!m_busy && m_reply == nullptr && m_writer == nullptr)
+        return;
+    if (m_settled) {
+        stopActiveWork();
+        setBusy(false);
+        setProgress(0, QString());
+        return;
     }
-    if (m_writer && m_writer->state() != QProcess::NotRunning) {
-        m_writer->terminate();
-        appendLog(Backend::tr("Cancellation requested…"));
-    } else if (!m_settled && m_busy) {
-        fail(Backend::tr("Cancelled."));
-    }
+    appendLog(Backend::tr("Cancellation requested…"));
+    fail(Backend::tr("Cancelled."));
 }
 
 QVariantMap Backend::windowGeometry() const {

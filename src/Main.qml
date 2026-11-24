@@ -137,7 +137,7 @@ ApplicationWindow {
                 anchors.fill: parent
                 anchors.margins: 2
                 radius: 4
-                color: box.highlightedIndex === option.index ? win.selection : "transparent"
+                color: option.hovered || box.highlightedIndex === option.index ? win.selection : "transparent"
             }
             Text {
                 anchors.fill: parent
@@ -149,6 +149,22 @@ ApplicationWindow {
                 font.family: win.fontFamily
                 font.pixelSize: Math.round(14 * backend.textScale)
                 elide: Text.ElideRight
+            }
+            HoverHandler {
+                id: optionHover
+            }
+            property bool hovered: optionHover.hovered
+            TapHandler {
+                // The row itself does not take the mouse, so only the arrow keys
+                // could confirm an entry. WithinBounds still counts the click when
+                // the list tries to scroll on the same press.
+                gesturePolicy: TapHandler.WithinBounds
+                onTapped: {
+                    var chosen = option.index
+                    box.currentIndex = chosen
+                    box.activated(chosen)
+                    Qt.callLater(function() { box.popup.close() })
+                }
             }
         }
         popup: Popup {
@@ -165,8 +181,13 @@ ApplicationWindow {
             contentItem: ListView {
                 clip: true
                 implicitHeight: contentHeight
+                maximumFlickVelocity: 4200
+                flickDeceleration: 1800
+                // Reusing rows mixes up the clicked index in a combo popup.
+                reuseItems: false
                 model: box.popup.visible ? box.delegateModel : null
                 currentIndex: box.highlightedIndex
+                highlightMoveDuration: 0
                 ScrollBar.vertical: ScrollBar {
                     contentItem: Rectangle {
                         implicitWidth: 6
@@ -185,6 +206,18 @@ ApplicationWindow {
             radius: 3
             color: win.mix(win.page, win.ink, 0.4)
         }
+    }
+
+    function tuneFlick(flick) {
+        flick.maximumFlickVelocity = 4200
+        flick.flickDeceleration = 1800
+    }
+
+    component FastList: ListView {
+        maximumFlickVelocity: 4200
+        flickDeceleration: 1800
+        reuseItems: true
+        cacheBuffer: 800
     }
 
     ColumnLayout {
@@ -272,7 +305,7 @@ ApplicationWindow {
                     font.pixelSize: 12
                     font.family: win.fontFamily
                 }
-                ListView {
+                FastList {
                     id: imageList
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -394,7 +427,7 @@ ApplicationWindow {
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
-                ListView {
+                FastList {
                     id: driveList
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -452,6 +485,7 @@ ApplicationWindow {
             ScrollView {
                 id: settingsScroll
                 clip: true
+                Component.onCompleted: win.tuneFlick(contentItem)
                 ColumnLayout {
                     width: settingsScroll.availableWidth
                     spacing: 12
@@ -559,14 +593,50 @@ ApplicationWindow {
                         }
 
                         Text { text: qsTr("Region"); color: win.ink; font.bold: true; font.family: win.fontFamily }
-                        Line { placeholderText: qsTr("Locale, for example en_US.UTF-8"); text: setup.locale; onTextEdited: setup.locale = text }
-                        Line { placeholderText: qsTr("Time zone, for example Europe/Berlin"); text: setup.timezone; onTextEdited: setup.timezone = text }
+                        Text {
+                            text: qsTr("Language")
+                            color: win.muted
+                            font.pixelSize: 12
+                            font.family: win.fontFamily
+                        }
+                        ThemedBox {
+                            id: localeBox
+                            Layout.fillWidth: true
+                            font.family: win.fontFamily
+                            model: backend.locales
+                            textRole: "label"
+                            valueRole: "value"
+                            onActivated: setup.locale = currentValue
+                        }
+                        Text {
+                            text: qsTr("Time zone")
+                            color: win.muted
+                            font.pixelSize: 12
+                            font.family: win.fontFamily
+                        }
+                        ThemedBox {
+                            id: timezoneBox
+                            Layout.fillWidth: true
+                            font.family: win.fontFamily
+                            model: backend.timezones
+                            textRole: "label"
+                            valueRole: "value"
+                            onActivated: setup.timezone = currentValue
+                        }
+                        Text {
+                            text: qsTr("Keyboard")
+                            color: win.muted
+                            font.pixelSize: 12
+                            font.family: win.fontFamily
+                        }
                         ThemedBox {
                             id: keyboardBox
                             Layout.fillWidth: true
                             font.family: win.fontFamily
-                            model: ["de", "us", "gb", "fr", "ch", "at", "nl", "es", "it", "pt", "pl", "se", "dk", "no", "fi", "cz", "hu", "tr", "ru", "jp"]
-                            onActivated: setup.keyboard = currentText
+                            model: backend.keyboards
+                            textRole: "label"
+                            valueRole: "value"
+                            onActivated: setup.keyboard = currentValue
                         }
 
                         Text { text: qsTr("SSH"); color: win.ink; font.bold: true; font.family: win.fontFamily }
@@ -603,7 +673,7 @@ ApplicationWindow {
                         Line { placeholderText: qsTr("Hostname, empty keeps raspberrypi"); text: setup.hostname; onTextEdited: setup.hostname = text }
 
                         ColumnLayout {
-                            visible: backend.selection.interfaces
+                            visible: backend.selection.interfaces === true
                             Layout.fillWidth: true
                             spacing: 8
                             Text { text: qsTr("Interfaces"); color: win.ink; font.bold: true; font.family: win.fontFamily }
@@ -684,9 +754,11 @@ ApplicationWindow {
                     enabled: !backend.busy
                 }
                 Action {
-                    text: backend.busy ? qsTr("Cancel") : qsTr("Overwrite drive")
+                    text: backend.busy ? qsTr("Cancel")
+                          : (win.writeFailed ? qsTr("Try again") : qsTr("Overwrite drive"))
                     primary: !backend.busy
-                    enabled: backend.busy || (confirm.checked && backend.hasSelection && backend.driveIndex >= 0 && !sizeWarning.tooSmall)
+                    enabled: backend.hasSelection && backend.driveIndex >= 0 && !sizeWarning.tooSmall
+                             && (backend.busy || confirm.checked || win.writeFailed)
                     onClicked: {
                         if (backend.busy) {
                             backend.cancelWrite()
@@ -745,8 +817,10 @@ ApplicationWindow {
                     visible: text !== ""
                 }
                 ScrollView {
+                    id: logScroll
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Component.onCompleted: win.tuneFlick(contentItem)
                     TextArea {
                         text: backend.logText
                         readOnly: true
@@ -915,6 +989,29 @@ ApplicationWindow {
 
     property rect normalGeometry: Qt.rect(x, y, width, height)
     property bool wasMaximized: false
+    function optionValue(box, index) {
+        var role = box.valueAt(index)
+        if (typeof role === "string" && role !== "")
+            return role
+        var entry = box.model && box.model[index]
+        if (entry && entry.value !== undefined)
+            return entry.value
+        return ""
+    }
+
+    function chooseOption(box, value) {
+        var wanted = value || ""
+        if (wanted === "en" || wanted === "en.UTF-8")
+            wanted = "en_US.UTF-8"
+        for (var i = 0; i < box.count; ++i) {
+            if (optionValue(box, i) === wanted) {
+                box.currentIndex = i
+                return true
+            }
+        }
+        return false
+    }
+
     function trackNormalGeometry() {
         if (visibility === Window.Windowed)
             normalGeometry = Qt.rect(x, y, width, height)
@@ -938,10 +1035,10 @@ ApplicationWindow {
         var saved = backend.savedSetup()
         setup.hostname = saved.hostname || ""
         setup.username = saved.username || ""
-        setup.locale = saved.locale || backend.defaultLocale()
-        setup.timezone = saved.timezone || backend.defaultTimezone()
-        setup.keyboard = saved.keyboard || backend.defaultKeyboard()
-        setup.wifiCountry = saved.wifiCountry || backend.defaultCountry()
+        setup.locale = saved.locale || backend.defaultLocale
+        setup.timezone = saved.timezone || backend.defaultTimezone
+        setup.keyboard = saved.keyboard || backend.defaultKeyboard
+        setup.wifiCountry = saved.wifiCountry || backend.defaultCountry
         setup.wifiSsid = saved.wifiSsid || ""
         setup.wifiEnabled = saved.wifiEnabled === true
         setup.wifiHidden = saved.wifiHidden === true
@@ -956,9 +1053,12 @@ ApplicationWindow {
         setup.enableUsbGadget = saved.enableUsbGadget === true
         setup.serial = saved.serial || "Disabled"
         setup.connectEnabled = saved.connectEnabled === true
-        var keyboardIndex = keyboardBox.model.indexOf(setup.keyboard)
-        if (keyboardIndex >= 0)
-            keyboardBox.currentIndex = keyboardIndex
+        if (setup.locale === "en" || setup.locale === "en.UTF-8")
+            setup.locale = "en_US.UTF-8"
+        if (!chooseOption(localeBox, setup.locale))
+            chooseOption(localeBox, "en_US.UTF-8")
+        chooseOption(timezoneBox, setup.timezone)
+        chooseOption(keyboardBox, setup.keyboard)
         var countryIndex = countryBox.model.indexOf(setup.wifiCountry)
         if (countryIndex >= 0)
             countryBox.currentIndex = countryIndex

@@ -46,6 +46,9 @@ class Backend : public QObject {
     Q_PROPERTY(QString defaultTimezone READ defaultTimezone CONSTANT)
     Q_PROPERTY(QString defaultKeyboard READ defaultKeyboard CONSTANT)
     Q_PROPERTY(QString defaultCountry READ defaultCountry CONSTANT)
+    Q_PROPERTY(QVariantList locales READ locales CONSTANT)
+    Q_PROPERTY(QVariantList timezones READ timezones CONSTANT)
+    Q_PROPERTY(QVariantList keyboards READ keyboards CONSTANT)
 
 public:
     explicit Backend(QObject *parent = nullptr);
@@ -83,6 +86,9 @@ public:
     QString defaultTimezone() const;
     QString defaultKeyboard() const;
     QString defaultCountry() const;
+    QVariantList locales() const;
+    QVariantList timezones() const;
+    QVariantList keyboards() const;
 
     void setDarkMode(bool darkMode);
 
@@ -148,10 +154,10 @@ private:
     void setProgress(qreal progress, const QString &label);
     void fail(const QString &message);
     void succeed(const QString &message);
+    void stopActiveWork();
     void beginDownload(const QString &url);
     void launchWriter(const QString &imagePath);
     void handleWriterLine(const QString &line);
-    void finishWriter(int exitCode);
     QString cachePathFor(const QString &url) const;
     void rememberSetup(QVariantMap settings) const;
 
@@ -189,6 +195,7 @@ private:
     QString m_progressLabel;
     QString m_log;
     bool m_settled = false;
+    int m_writeGeneration = 0;
     QHash<QString, QByteArray> m_pendingFiles;
     QByteArray m_pendingCmdline;
     qint64 m_pendingExtractSize = 0;

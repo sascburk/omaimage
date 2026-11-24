@@ -404,6 +404,18 @@
         <translation>Region</translation>
     </message>
     <message>
+        <source>Language</source>
+        <translation>Sprache</translation>
+    </message>
+    <message>
+        <source>Time zone</source>
+        <translation>Zeitzone</translation>
+    </message>
+    <message>
+        <source>Keyboard</source>
+        <translation>Tastatur</translation>
+    </message>
+    <message>
         <source>Locale, for example en_US.UTF-8</source>
         <translation>Locale, zum Beispiel de_DE.UTF-8</translation>
     </message>
@@ -494,6 +506,10 @@
     <message>
         <source>Overwrite drive</source>
         <translation>Stick überschreiben</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Erneut versuchen</translation>
     </message>
     <message>
         <source>Selected: %1</source>
